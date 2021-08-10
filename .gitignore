@@ -255,3 +255,6 @@ fabric.properties
 
 neuromorphicTestFramework/models/*
 neuromorphicTestFramework/videos/*
+!results_models/yolov5s_Integral_results/*
+!results_models/yolov5s_SITS_results/*
+!results_models/yolov5s_TORE_results/*
