@@ -1,0 +1,9 @@
+train: ../VOC/images/train_n  # 16551 images
+val: ../VOC/images/val_n  # 4952 images
+
+# number of classes
+nc: 20
+
+# class names
+names: [ 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog',
+         'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor' ]

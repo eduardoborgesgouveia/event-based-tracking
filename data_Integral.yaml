@@ -1,0 +1,8 @@
+train: ../Integral_dataset/train/images  # 16551 images
+val: ../Integral_dataset/test/images  # 4952 images
+
+# number of classes
+nc: 7
+
+# class names
+names: [ 'Banana', 'Cup','Fork','Key','Knife','Muggle','Orange']
