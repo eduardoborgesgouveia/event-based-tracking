@@ -126,9 +126,10 @@ def main():
     flagDistanceFilter = True
     mediaMovelDistancia = [0,0,0]
     qtdeMediaMovel = 3
-    thresholdDistanceFilter = 0.15
+    percentageDistanceThreshold = 2.0
+    mediaMovelMediaBB = [0,0,0]
     maxDistanceImage = math.sqrt(128**2 + 128**2)
-    thresholdDistanceFilter = thresholdDistanceFilter*maxDistanceImage
+    thresholdDistanceFilter = percentageDistanceThreshold*maxDistanceImage
     lastCentroid = (0,0)
     distancia = 0
 #fim dos parametros
@@ -213,14 +214,19 @@ def main():
                             label = f'{names[int(cls)]} {conf:.2f}'
 
                             centroid = getCentroid(xyxy)
+                            mediaBB = getMediaTamanhoBB(xyxy)
                             if(flagDistanceFilter):
-
+                                mediaMovelMediaBB.append(mediaBB)
                                 if(lastCentroid != (0,0)):
                                     distancia = getDistanciaPontos(centroid, lastCentroid)
                                     mediaMovelDistancia.append(distancia)
                                 distanciaMedia = moving_average(mediaMovelDistancia,len(mediaMovelDistancia))
+                                avgBB = moving_average(mediaMovelMediaBB,len(mediaMovelMediaBB))
+                                thresholdDistanceFilter = percentageDistanceThreshold*avgBB
                                 if(len(mediaMovelDistancia)>qtdeMediaMovel):
                                     mediaMovelDistancia = mediaMovelDistancia[1:-1]
+                                if(len(mediaMovelMediaBB)>qtdeMediaMovel):
+                                    mediaMovelMediaBB = mediaMovelMediaBB[1:-1]
                                 if(distancia < thresholdDistanceFilter):
                                     plot_one_box(xyxy, im0, label="", color=colors[1], line_thickness=3)
                                     cv2.circle(im0, centroid, 1, colors[1], 3)
@@ -264,6 +270,13 @@ def getCentroid(x):
 def getDistanciaPontos(p1,p2):
     distancia = math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
     return distancia
+
+def getMediaTamanhoBB(x):
+    p1, p2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
+    width = int(x[2]) - int(x[0])
+    height = int(x[3]) - int(x[1])
+    avg = (width + height)/2
+    return avg
 
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
     # Resize and pad image while meeting stride-multiple constraints
