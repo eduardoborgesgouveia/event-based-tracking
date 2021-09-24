@@ -33,7 +33,7 @@ from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 #40 e 0,45
-frameTime = 25000
+frameTime = 18000
 HOST = ''
 PORT = 8000
 clock = pygame.time.Clock()
@@ -81,7 +81,7 @@ def main():
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     opt = parser.parse_args()
-    weights, imgsz = 'models/SITS/best.pt', 128
+    weights, imgsz = 'models/Integral_4/best.pt', 128
     device = select_device('') #CUDA
     half = device.type != 'cpu'  # half precision only supported on CUDA
     # Load model
@@ -126,7 +126,7 @@ def main():
     flagDistanceFilter = True
     mediaMovelDistancia = [0,0,0]
     qtdeMediaMovel = 3
-    thresholdDistanceFilter = 0.15
+    thresholdDistanceFilter = 0.2
     maxDistanceImage = math.sqrt(128**2 + 128**2)
     thresholdDistanceFilter = thresholdDistanceFilter*maxDistanceImage
     lastCentroid = (0,0)
@@ -192,7 +192,7 @@ def main():
                 pred = model(img, augment=opt.augment)[0]
 
                 # Apply NMS
-                pred = non_max_suppression(pred, 0.18, 0.1, classes=opt.classes, agnostic=opt.agnostic_nms)
+                pred = non_max_suppression(pred, 0.18, 0.6, classes=opt.classes, agnostic=opt.agnostic_nms)
                 t2 = time_synchronized()
                 # Process detections
                 for i, det in enumerate(pred):  # detections per image
@@ -257,6 +257,7 @@ def moving_average(a, n) :
 def getCentroid(x):
     p1, p2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
     width = int(x[2]) - int(x[0])
+    #print(width)
     height = int(x[3]) - int(x[1])
     c1 = int(x[0]+width/2)
     c2 = int(x[1]+height/2)
