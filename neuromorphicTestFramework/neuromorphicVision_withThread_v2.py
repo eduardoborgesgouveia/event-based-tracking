@@ -81,7 +81,7 @@ def main():
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     opt = parser.parse_args()
-    weights, imgsz = 'models/Integral_4/best.pt', 128
+    weights, imgsz = 'models/SITS_transferLearning_2/last.pt', 128
     device = select_device('') #CUDA
     half = device.type != 'cpu'  # half precision only supported on CUDA
     # Load model
@@ -123,7 +123,7 @@ def main():
     pos_atual_y = 115
 
 #parametros da filtragem por distancia
-    flagDistanceFilter = True
+    flagDistanceFilter = False
     mediaMovelDistancia = [0,0,0]
     qtdeMediaMovel = 3
     thresholdDistanceFilter = 0.2
@@ -222,14 +222,14 @@ def main():
                                 if(len(mediaMovelDistancia)>qtdeMediaMovel):
                                     mediaMovelDistancia = mediaMovelDistancia[1:-1]
                                 if(distancia < thresholdDistanceFilter):
-                                    plot_one_box(xyxy, im0, label="", color=colors[1], line_thickness=3)
-                                    cv2.circle(im0, centroid, 1, colors[1], 3)
+                                    plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
+                                    cv2.circle(im0, centroid, 1, colors[0], 3)
                                     lastCentroid = centroid
                                 else:
                                     cv2.circle(im0, lastCentroid, 1, colors[0], 3)
                             else:
-                                plot_one_box(xyxy, im0, label="", color=colors[1], line_thickness=3)
-                                cv2.circle(im0, centroid, 1, colors[1], 3)
+                                plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
+                                cv2.circle(im0, centroid, 1, colors[0], 3)
 
 
 
