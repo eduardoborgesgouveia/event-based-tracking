@@ -184,6 +184,7 @@ def main():
     ti_alcance = time.time()
     qtde_frames = 0
     qtde_deteccoes = 0
+    qtde_deteccoes_corretas = 0
     while flagAlcance:
         if len(filaFrame) > 0:
             count = len(filaFrame)
@@ -240,10 +241,14 @@ def main():
                 t2 = time_synchronized()
                 # Process detections
                 for i, det in enumerate(pred):  # detections per image
+                    print(len(pred))
+                    print(pred)
+                    qtde_deteccoes += 1
                     s,im0, frame = '', img_visualize, 0
                     s += '%gx%g ' % img.shape[2:]  # print string
                     gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
                     if len(det):
+
                         # Rescale boxes from img_size to im0 size
                         det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
@@ -252,6 +257,7 @@ def main():
                             n = (det[:, -1] == c).sum()  # detections per class
                             s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
                         index_min, dist_center,centroid, erro_x,erro_z = getCloserToCenter(det)
+
                         # Write results
                         *xyxy, conf, cls = reversed(det)[index_min]
                         label = f'{names[int(cls)]} {conf:.2f}'
@@ -296,7 +302,7 @@ def main():
                                 plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
                                 cv2.circle(im0, centroid, 1, colors[0], 3)
                                 lastCentroid = centroid
-                                qtde_deteccoes += 1
+                                qtde_deteccoes_corretas += 1
                                 if wx.isConnected:
                                     if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
                                         pos_atual_y += step_y
@@ -340,7 +346,8 @@ def main():
                 cv2.waitKey(1)  # 1 millisecond
             mutex.release()
     tempo_alcance = tf_alcance - ti_alcance
-    taxa_erro_percentual = qtde_deteccoes/qtde_frames
+    taxa_erro_percentual_frames = qtde_deteccoes/qtde_frames
+    taxa_erro_percentual_deteccoes = qtde_deteccoes_corretas/qtde_deteccoes
     ### PREPARACAO PARA SALVAR AS INFORMAÇÕES
     if not os.path.exists(opt.path_to_save):
         os.makedirs(opt.path_to_save)
@@ -367,7 +374,8 @@ def main():
         "limiar_distancia_pixel": thresholdDistanceFilter,
         "numero_objetos": opt.num_objects,
         "tempo_alcance": tempo_alcance,
-        "taxa_acerto_percentual_tracking": taxa_erro_percentual,
+        "taxa_acerto_percentual_tracking": taxa_erro_percentual_frames,
+        "taxa_acerto_percentual_deteccoes": taxa_erro_percentual_deteccoes,
         "quantidade_deteccoes_tracking":qtde_deteccoes,
         "quantidade_frames": qtde_frames,
         "objeto_de_interesse": opt.objeto_interesse,
