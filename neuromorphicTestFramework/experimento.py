@@ -80,6 +80,7 @@ def main():
     k_x = wx.RANGE_MOVIMENTO_X*k_perc
     k_y = wx.RANGE_MOVIMENTO_Y*k_perc
     k_z = wx.RANGE_MOVIMENTO_Z*k_perc
+    #k_z = 250
     print("kx: " + str(k_x) + " ky: " + str(k_y) + " kz: " + str(k_z))
     input("Press enter")
     threadAquisicao = ThreadHandler(aquisicaoDvs)
@@ -107,10 +108,14 @@ def main():
     parser.add_argument('--conf-thresh', type=float, default=0.45 ,help='confidence of the predictions')
     parser.add_argument('--iou-thresh', type=float, default=0.1 ,help='confidence of the predictions')
     parser.add_argument('--speed', type=float, default=1 ,help='widowX speed')
+    parser.add_argument('--num-objects', type=int, default=1 ,help='number of objects in scene')
+    parser.add_argument('--id', type=str, default="sem_id",help='id for identification')
+    parser.add_argument('--objeto-interesse', type=int, default=None,help='class of the object of interest:::  0: Banana 1: Cup  2: Fork    3: Key    4: Knife    5: Mug    6: Orange')
 
 
     opt = parser.parse_args()
-
+    obj_interesse = opt.objeto_interesse
+    predicao_classes = []
     if opt.speed == 1:
         wx.DELTA = 60
     elif opt.speed == 2:
@@ -174,50 +179,17 @@ def main():
 
     threadAquisicao.start()
 
-    ### PREPARACAO PARA SALVAR AS INFORMAÇÕES
-    if not os.path.exists(opt.path_to_save):
-        os.makedirs(opt.path_to_save)
 
-    # datetime object containing current date and time
-    now = datetime.now()
-    dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
-    fileName = opt.name + "_" + dt_string
-    f = open(opt.path_to_save + "/" + fileName +".json", "w+")
-    dataToSave = {
-        "Confianca" : opt.conf_thresh,
-        "limiar_IOU" : opt.iou_thresh,
-        "Kpx" : k_x,
-        "Kpy" : k_y,
-        "Kpz" : k_z,
-        "pos_inicial_x":pos_atual_x,
-        "pos_inicial_y":pos_atual_y,
-        "pos_inicial_z":pos_atual_z,
-        "frame_time": frameTime,
-        "freq_widowX": wx.FREQ_MAX,
-        "velocidade":wx.DELTA,
-        "filtragemDistancia": flagDistanceFilter,
-        "limiar_distancia_pixel": thresholdDistanceFilter
-
-    }
-
-    json.dump(dataToSave, f)
-
-    #f.write("Parametros iniciais"\n")
-    #f.write("Confiança: " + str(opt.conf_thresh) + "\n")
-    #f.write("limiar IOU: " + str(opt.iou_thresh) + "\n")
-    #f.write("Kpx: " + str(k_x) + " Kpy: " + str(k_y) + " Kpz: " + str(k_z) + "\n")
-    #f.write("Posição inicial X: " + str(pos_atual_x) + "\n")
-    #f.write("Posição inicial Y: " + str(pos_atual_y) + "\n")
-    #f.write("Posição inicial Z: " + str(pos_atual_z) + "\n")
-
-    f.close()
-
-    ###--------------------------------------
-    while True:
+    flagAlcance = True
+    ti_alcance = time.time()
+    qtde_frames = 0
+    qtde_deteccoes = 0
+    while flagAlcance:
         if len(filaFrame) > 0:
             count = len(filaFrame)
             mutex.acquire()
             for i in range(count):
+                qtde_frames += 1
                 frame = filaFrame.popleft()
                 #if i == count -1:
                 displayEvents.plotEventsF(frame[0],frame[1],frame[2])
@@ -264,6 +236,7 @@ def main():
                 # Apply NMS
                 pred = non_max_suppression(pred, opt.conf_thresh, opt.iou_thresh, classes=opt.classes, agnostic=opt.agnostic_nms)
                 #pred = non_max_suppression(pred, 0.25, 0.1, classes=opt.classes, agnostic=opt.agnostic_nms)
+
                 t2 = time_synchronized()
                 # Process detections
                 for i, det in enumerate(pred):  # detections per image
@@ -278,101 +251,162 @@ def main():
                         for c in det[:, -1].unique():
                             n = (det[:, -1] == c).sum()  # detections per class
                             s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
-
+                        index_min, dist_center,centroid, erro_x,erro_z = getCloserToCenter(det)
                         # Write results
-                        for *xyxy, conf, cls in reversed(det):
-                            label = f'{names[int(cls)]} {conf:.2f}'
+                        *xyxy, conf, cls = reversed(det)[index_min]
+                        label = f'{names[int(cls)]} {conf:.2f}'
+                        predicao_classes.append(int(cls))
+                        #print(erro_z)
 
-                            centroid = getCentroid(xyxy)
-                            dist_center, erro_x, erro_z = getError(centroid)
-                            #print(erro_z)
-                            k_z = 250
-                            #k_z = 150
-                            #k_x = 7
-                            step_y = 5
-                            if erro_x is not None and erro_x < 0:
-                                pos_atual_x += (abs(erro_x)/k_x)
-                                if pos_atual_x >= wx.LIMITE_SUPERIOR_SEGURANCA_X:
-                                    pos_atual_x = wx.LIMITE_SUPERIOR_SEGURANCA_X
-                            elif erro_x is not None and erro_x > 0:
-                                pos_atual_x -= (abs(erro_x)/k_x)
-                                if pos_atual_x <= wx.LIMITE_INFERIOR_SEGURANCA_X:
-                                    pos_atual_x = wx.LIMITE_INFERIOR_SEGURANCA_X
-                            if erro_z is not None and erro_z < 0:
-                                pos_atual_z += (abs(erro_z)/k_z)
-                                if pos_atual_z >= wx.LIMITE_SUPERIOR_SEGURANCA_Z:
-                                    pos_atual_z = wx.LIMITE_SUPERIOR_SEGURANCA_Z
-                            elif erro_z is not None and erro_z > 0:
-                                pos_atual_z -= (abs(erro_z)/k_z)
-                                if pos_atual_z <= wx.LIMITE_INFERIOR_SEGURANCA_Z:
-                                    pos_atual_z = wx.LIMITE_INFERIOR_SEGURANCA_Z
-                            if pos_atual_y <= wx.LIMITE_INFERIOR_SEGURANCA_Y:
-                                pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
-                            elif pos_atual_y >= wx.LIMITE_SUPERIOR_SEGURANCA_Y:
-                                #while(time.perf_counter() - tw0 < (1/wx.FREQ_MAX)):
-                                #    pass
-                                #wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),gripper=30)
-                                #tw0 = time.perf_counter()
-                                #while(time.perf_counter() - tw0 < 2):
-                                #    pass
-                                pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
+                        #k_z = 150
+                        #k_x = 7
+                        step_y = 5
+                        if erro_x is not None and erro_x < 0:
+                            pos_atual_x += (abs(erro_x)/k_x)
+                            if pos_atual_x >= wx.LIMITE_SUPERIOR_SEGURANCA_X:
+                                pos_atual_x = wx.LIMITE_SUPERIOR_SEGURANCA_X
+                        elif erro_x is not None and erro_x > 0:
+                            pos_atual_x -= (abs(erro_x)/k_x)
+                            if pos_atual_x <= wx.LIMITE_INFERIOR_SEGURANCA_X:
+                                pos_atual_x = wx.LIMITE_INFERIOR_SEGURANCA_X
+                        if erro_z is not None and erro_z < 0:
+                            pos_atual_z += (abs(erro_z)/k_z)
+                            if pos_atual_z >= wx.LIMITE_SUPERIOR_SEGURANCA_Z:
+                                pos_atual_z = wx.LIMITE_SUPERIOR_SEGURANCA_Z
+                        elif erro_z is not None and erro_z > 0:
+                            pos_atual_z -= (abs(erro_z)/k_z)
+                            if pos_atual_z <= wx.LIMITE_INFERIOR_SEGURANCA_Z:
+                                pos_atual_z = wx.LIMITE_INFERIOR_SEGURANCA_Z
+                        if pos_atual_y <= wx.LIMITE_INFERIOR_SEGURANCA_Y:
+                            pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
+                        elif pos_atual_y >= wx.LIMITE_SUPERIOR_SEGURANCA_Y:
+                            flagAlcance = False
+                            tf_alcance = time.time()
+                            pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
 
 
-                            if(flagDistanceFilter):
-
-                                if(lastCentroid != (0,0)):
-                                    distancia = getDistanciaPontos(centroid, lastCentroid)
-                                    mediaMovelDistancia.append(distancia)
-                                distanciaMedia = moving_average(mediaMovelDistancia,len(mediaMovelDistancia))
-                                if(len(mediaMovelDistancia)>qtdeMediaMovel):
-                                    mediaMovelDistancia = mediaMovelDistancia[1:-1]
-                                if(distancia < thresholdDistanceFilter):
-                                    plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
-                                    cv2.circle(im0, centroid, 1, colors[0], 3)
-                                    lastCentroid = centroid
-                                    if wx.isConnected:
-                                        if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
-                                            pos_atual_y += step_y
-                                            wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
-                                            tw0 = time.perf_counter()
-                                else:
-                                    cv2.circle(im0, lastCentroid, 1, colors[0], 3)
-                            else:
+                        if(flagDistanceFilter):
+                            if(lastCentroid != (0,0)):
+                                distancia = getDistanciaPontos(centroid, lastCentroid)
+                                mediaMovelDistancia.append(distancia)
+                            distanciaMedia = moving_average(mediaMovelDistancia,len(mediaMovelDistancia))
+                            if(len(mediaMovelDistancia)>qtdeMediaMovel):
+                                mediaMovelDistancia = mediaMovelDistancia[1:-1]
+                            if(distancia < thresholdDistanceFilter):
                                 plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
                                 cv2.circle(im0, centroid, 1, colors[0], 3)
+                                lastCentroid = centroid
+                                qtde_deteccoes += 1
                                 if wx.isConnected:
                                     if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
                                         pos_atual_y += step_y
                                         wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
                                         tw0 = time.perf_counter()
-
-
-
-                    else:
-                        ##responsavel por realizar o movimento de geração de eventos
-                        if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
-                            pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
-                            if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
-                                pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
-                                step_wrist_angle = -step_wrist_angle
-                            elif pos_atual_wrist_angle >= wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE:
-                                pos_atual_wrist_angle = wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE
-                                step_wrist_angle = -step_wrist_angle
-                            if pos_atual_y == wx.LIMITE_INFERIOR_SEGURANCA_Y:
-                                dt = wx.DELTA
                             else:
-                                dt = 40
-                            wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),wrist=int(pos_atual_wrist_angle),delta=dt)
-                            tw0 = time.perf_counter()
-                    #print(f'{s}Done. ({t2 - t1:.3f}s) - {fps} FPS')
+                                cv2.circle(im0, lastCentroid, 1, colors[0], 3)
+                        else:
+                            plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
+                            cv2.circle(im0, centroid, 1, colors[0], 3)
+                            if wx.isConnected:
+                                if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
+                                    pos_atual_y += step_y
+                                    wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
+                                    tw0 = time.perf_counter()
 
-                    cv2.namedWindow('N-yolo',cv2.WINDOW_NORMAL)
-                    cv2.resizeWindow('N-yolo', 400,400)
-                    cv2.imshow('N-yolo', im0)
 
-                    cv2.waitKey(1)  # 1 millisecond
+
+                else:
+                    ##responsavel por realizar o movimento de geração de eventos
+                    if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
+                        pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
+                        if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
+                            pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
+                            step_wrist_angle = -step_wrist_angle
+                        elif pos_atual_wrist_angle >= wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE:
+                            pos_atual_wrist_angle = wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE
+                            step_wrist_angle = -step_wrist_angle
+                        if pos_atual_y == wx.LIMITE_INFERIOR_SEGURANCA_Y:
+                            dt = wx.DELTA
+                        else:
+                            dt = 40
+                        wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),wrist=int(pos_atual_wrist_angle),delta=dt)
+                        tw0 = time.perf_counter()
+                #print(f'{s}Done. ({t2 - t1:.3f}s) - {fps} FPS')
+
+                cv2.namedWindow('N-yolo',cv2.WINDOW_NORMAL)
+                cv2.resizeWindow('N-yolo', 400,400)
+                cv2.imshow('N-yolo', im0)
+
+                cv2.waitKey(1)  # 1 millisecond
             mutex.release()
+    tempo_alcance = tf_alcance - ti_alcance
+    taxa_erro_percentual = qtde_deteccoes/qtde_frames
+    ### PREPARACAO PARA SALVAR AS INFORMAÇÕES
+    if not os.path.exists(opt.path_to_save):
+        os.makedirs(opt.path_to_save)
+
+    # datetime object containing current date and time
+    now = datetime.now()
+    dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
+    fileName = opt.name + "_" + dt_string
+    f = open(opt.path_to_save + "/" + fileName +".json", "w+")
+    dataToSave = {
+        "id": opt.id,
+        "Confianca" : opt.conf_thresh,
+        "limiar_IOU" : opt.iou_thresh,
+        "Kpx" : k_x,
+        "Kpy" : k_y,
+        "Kpz" : k_z,
+        "pos_inicial_x":wx.POSICAO_INICIAL_X,
+        "pos_inicial_y":wx.POSICAO_INICIAL_Y,
+        "pos_inicial_z":wx.POSICAO_INICIAL_Z,
+        "frame_time": frameTime,
+        "freq_widowX": wx.FREQ_MAX,
+        "velocidade":wx.DELTA,
+        "filtragemDistancia": flagDistanceFilter,
+        "limiar_distancia_pixel": thresholdDistanceFilter,
+        "numero_objetos": opt.num_objects,
+        "tempo_alcance": tempo_alcance,
+        "taxa_acerto_percentual_tracking": taxa_erro_percentual,
+        "quantidade_deteccoes_tracking":qtde_deteccoes,
+        "quantidade_frames": qtde_frames,
+        "objeto_de_interesse": opt.objeto_interesse,
+        "vetor_classificação_classes": str(predicao_classes),
+        "taxa_acerto_deteccao": predicao_classes.count(opt.objeto_interesse)/len(predicao_classes)
+
+    }
+
+    json.dump(dataToSave, f)
+
+    #f.write("Parametros iniciais"\n")
+    #f.write("Confiança: " + str(opt.conf_thresh) + "\n")
+    #f.write("limiar IOU: " + str(opt.iou_thresh) + "\n")
+    #f.write("Kpx: " + str(k_x) + " Kpy: " + str(k_y) + " Kpz: " + str(k_z) + "\n")
+    #f.write("Posição inicial X: " + str(pos_atual_x) + "\n")
+    #f.write("Posição inicial Y: " + str(pos_atual_y) + "\n")
+    #f.write("Posição inicial Z: " + str(pos_atual_z) + "\n")
+
+    f.close()
+
+    ###--------------------------------------
+
     udp.close()
+
+
+
+def getCloserToCenter(det):
+    dists = []
+    centroid = (0,0)
+    dist_center = 0
+    for *coord, conf, cls in reversed(det):
+        centroid = getCentroid(coord)
+        dist_center, erro_x, erro_z = getError(centroid)
+        dists.append(dist_center)
+    index_min = np.argmin(dists)
+    return index_min, dist_center,centroid, erro_x,erro_z
+
+
+
 
 
 def getError(centroid):
