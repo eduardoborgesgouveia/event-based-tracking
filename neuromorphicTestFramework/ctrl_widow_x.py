@@ -61,8 +61,8 @@ class widow_x():
         self.EXTENDED_BYTE = 0x00 #move arm to position
         self.BUTTON_BYTE = 0x00 #do nothing
         self.TIME = 2000 #time in miliseconds
-        self.DELTA = 60 #delta value from the package. Range: 0 - 255
-        self.FREQ_MAX = 35
+        self.DELTA = 20 #delta value from the package. Range: 0 - 255
+        self.FREQ_MAX = 20
 
         #VARIAVEIS DE STATUS
         self.isConnected = False

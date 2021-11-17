@@ -39,7 +39,7 @@ from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 #40 e 0,45
-frameTime = 33000
+frameTime = 40000
 HOST = ''
 PORT = 8000
 clock = pygame.time.Clock()
@@ -75,9 +75,9 @@ def main():
     pos_atual_y = wx.POSICAO_INICIAL_Y #movimento pra frente
     pos_atual_z = wx.POSICAO_INICIAL_Z #movimento vertical
     pos_atual_wrist_angle = wx.POSICAO_INICIAL_WRIST_ANGLE #movimento do punho
-    step_wrist_angle = 4
+    step_wrist_angle = 8
     k_perc = 0.015
-    k_x = wx.RANGE_MOVIMENTO_X*k_perc
+    k_x = wx.RANGE_MOVIMENTO_X*k_perc/4
     k_y = wx.RANGE_MOVIMENTO_Y*k_perc
     k_z = wx.RANGE_MOVIMENTO_Z*k_perc
     #k_z = 250
@@ -185,6 +185,18 @@ def main():
     qtde_frames = 0
     qtde_deteccoes = 0
     qtde_deteccoes_corretas = 0
+    error_prior_z = 0
+    integral_prior_z = 0
+    error_prior_x = 0
+    integral_prior_x = 0
+    iteration_time = (1/wx.FREQ_MAX)
+    Kp_x = 0.02*k_x
+    Ki_x = 0.05*Kp_x/iteration_time
+    Kd_x = (Kp_x*iteration_time)/160
+    Kp_z = 0.02*k_z
+    Ki_z = 0.05*Kp_z/iteration_time
+    Kd_z = (Kp_z*iteration_time)/160
+
     while flagAlcance:
         if len(filaFrame) > 0:
             count = len(filaFrame)
@@ -202,7 +214,7 @@ def main():
                 s[s==127.5] = 0
                 imgO = np.dstack([s,s,s])
                 imgO = imgO.astype(np.uint8).copy()
-                img0 = fu.median(imgO,7)
+                #img0 = fu.median(imgO,7)
                 # time when we finish processing for this frame
                 new_frame_time = time.time()
                 # fps will be number of frame processed in given time frame
@@ -241,14 +253,11 @@ def main():
                 t2 = time_synchronized()
                 # Process detections
                 for i, det in enumerate(pred):  # detections per image
-                    print(len(pred))
-                    print(pred)
-                    qtde_deteccoes += 1
                     s,im0, frame = '', img_visualize, 0
                     s += '%gx%g ' % img.shape[2:]  # print string
                     gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
                     if len(det):
-
+                        qtde_deteccoes += 1
                         # Rescale boxes from img_size to im0 size
                         det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
@@ -262,13 +271,20 @@ def main():
                         *xyxy, conf, cls = reversed(det)[index_min]
                         label = f'{names[int(cls)]} {conf:.2f}'
                         predicao_classes.append(int(cls))
-                        #print(erro_z)
 
-                        #k_z = 150
-                        #k_x = 7
+                        #controll signall
+                        integral_x = integral_prior_x + erro_x * iteration_time
+                        derivative_x = (erro_x - error_prior_x) / iteration_time
+                        output_x = Kp_x*erro_x + Ki_x*integral_x + Kd_x*derivative_x
+
+                        integral_z = integral_prior_z + erro_z * iteration_time
+                        derivative_z = (erro_z - error_prior_z) / iteration_time
+                        output_z = Kp_z*erro_z + Ki_z*integral_z + Kd_z*derivative_z
+
                         step_y = 5
                         if erro_x is not None and erro_x < 0:
                             pos_atual_x += (abs(erro_x)/k_x)
+                            #pos_atual_x += (abs(erro_x)/k_x)
                             if pos_atual_x >= wx.LIMITE_SUPERIOR_SEGURANCA_X:
                                 pos_atual_x = wx.LIMITE_SUPERIOR_SEGURANCA_X
                         elif erro_x is not None and erro_x > 0:
@@ -321,23 +337,23 @@ def main():
 
 
 
-                else:
-                    ##responsavel por realizar o movimento de geração de eventos
-                    if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
-                        pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
-                        if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
-                            pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
-                            step_wrist_angle = -step_wrist_angle
-                        elif pos_atual_wrist_angle >= wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE:
-                            pos_atual_wrist_angle = wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE
-                            step_wrist_angle = -step_wrist_angle
-                        if pos_atual_y == wx.LIMITE_INFERIOR_SEGURANCA_Y:
-                            dt = wx.DELTA
-                        else:
-                            dt = 40
-                        wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),wrist=int(pos_atual_wrist_angle),delta=dt)
-                        tw0 = time.perf_counter()
-                #print(f'{s}Done. ({t2 - t1:.3f}s) - {fps} FPS')
+                    else:
+                        ##responsavel por realizar o movimento de geração de eventos
+                        if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
+                            pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
+                            if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
+                                pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
+                                step_wrist_angle = -step_wrist_angle
+                            elif pos_atual_wrist_angle >= wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE:
+                                pos_atual_wrist_angle = wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE
+                                step_wrist_angle = -step_wrist_angle
+                            if pos_atual_y == wx.LIMITE_INFERIOR_SEGURANCA_Y:
+                                dt = wx.DELTA
+                            else:
+                                dt = 40
+                            wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),wrist=int(pos_atual_wrist_angle),delta=dt)
+                            tw0 = time.perf_counter()
+                    #print(f'{s}Done. ({t2 - t1:.3f}s) - {fps} FPS')
 
                 cv2.namedWindow('N-yolo',cv2.WINDOW_NORMAL)
                 cv2.resizeWindow('N-yolo', 400,400)
