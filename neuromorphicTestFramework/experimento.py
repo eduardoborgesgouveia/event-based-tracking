@@ -68,6 +68,7 @@ def aquisicaoDvs():
 
 
 def main():
+    global wx
     #posição de controle
     wx = widow_x()
     wx.connect()
@@ -105,8 +106,8 @@ def main():
     parser.add_argument('--path-to-save', type= str, default="data_experimentos" ,help='path to save the active tracking data')
     parser.add_argument('--name', type= str, default="experimento" ,help='name of the file to save information')
     parser.add_argument('--model', type= str, default="models/SITS/best.pt" ,help='path to weights')
-    parser.add_argument('--conf-thresh', type=float, default=0.45 ,help='confidence of the predictions')
-    parser.add_argument('--iou-thresh', type=float, default=0.1 ,help='confidence of the predictions')
+    parser.add_argument('--conf-thresh', type=float, default=0.3 ,help='confidence of the predictions')
+    parser.add_argument('--iou-thresh', type=float, default=0.5 ,help='confidence of the predictions')
     parser.add_argument('--speed', type=float, default=1 ,help='widowX speed')
     parser.add_argument('--num-objects', type=int, default=1 ,help='number of objects in scene')
     parser.add_argument('--id', type=str, default="sem_id",help='id for identification')
@@ -196,7 +197,14 @@ def main():
     Kp_z = 0.02*k_z
     Ki_z = 0.05*Kp_z/iteration_time
     Kd_z = (Kp_z*iteration_time)/160
-
+    qtde_predicoes_tensor = []
+    qtde_deteccoes_acc_temp_totais = []
+    qtde_deteccoes_acc_temp_validas = []
+    taxa_acc_temp = []
+    tipo_deteccao = []
+    tempo_sacada = []
+    tsF = 0
+    ts0 = 0
     while flagAlcance:
         if len(filaFrame) > 0:
             count = len(filaFrame)
@@ -249,7 +257,7 @@ def main():
                 # Apply NMS
                 pred = non_max_suppression(pred, opt.conf_thresh, opt.iou_thresh, classes=opt.classes, agnostic=opt.agnostic_nms)
                 #pred = non_max_suppression(pred, 0.25, 0.1, classes=opt.classes, agnostic=opt.agnostic_nms)
-
+                qtde_predicoes_tensor.append(len(pred))
                 t2 = time_synchronized()
                 # Process detections
                 for i, det in enumerate(pred):  # detections per image
@@ -258,6 +266,7 @@ def main():
                     gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
                     if len(det):
                         qtde_deteccoes += 1
+
                         # Rescale boxes from img_size to im0 size
                         det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
@@ -308,6 +317,9 @@ def main():
 
 
                         if(flagDistanceFilter):
+                            if len(tipo_deteccao) > 0 and tipo_deteccao[-1] == "sacada":
+                              tsF = time.perf_counter()
+                              tempo_sacada.append(tsF - ts0)
                             if(lastCentroid != (0,0)):
                                 distancia = getDistanciaPontos(centroid, lastCentroid)
                                 mediaMovelDistancia.append(distancia)
@@ -319,12 +331,14 @@ def main():
                                 cv2.circle(im0, centroid, 1, colors[0], 3)
                                 lastCentroid = centroid
                                 qtde_deteccoes_corretas += 1
+                                tipo_deteccao.append("valida")
                                 if wx.isConnected:
                                     if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
                                         pos_atual_y += step_y
                                         wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
                                         tw0 = time.perf_counter()
                             else:
+                                tipo_deteccao.append("invalida")
                                 cv2.circle(im0, lastCentroid, 1, colors[0], 3)
                         else:
                             plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
@@ -335,11 +349,33 @@ def main():
                                     wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
                                     tw0 = time.perf_counter()
 
+                        if qtde_deteccoes % 5 == 0:
+
+                          if len(qtde_deteccoes_acc_temp_validas) == 0:
+                            last_value_val = 0
+                          else:
+                            last_value_val = qtde_deteccoes_acc_temp_validas[-1]
+
+                          if len(qtde_deteccoes_acc_temp_totais) == 0:
+                            last_value_tot = 0
+                          else:
+                            last_value_tot = qtde_deteccoes_acc_temp_totais[-1]
+
+                          qtde_deteccoes_acc_temp_totais.append(qtde_deteccoes)
+                          qtde_deteccoes_acc_temp_validas.append(qtde_deteccoes_corretas)
+
+
+                          taxa_acc_temp.append((qtde_deteccoes_corretas - last_value_val)/(qtde_deteccoes - last_value_tot))
 
 
                     else:
                         ##responsavel por realizar o movimento de geração de eventos
                         if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
+                            
+                            if len(tipo_deteccao) == 0 or tipo_deteccao[-1] != "sacada":
+                              ts0 = time.perf_counter()
+
+                            tipo_deteccao.append("sacada")
                             pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
                             if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
                                 pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
@@ -353,6 +389,8 @@ def main():
                                 dt = 40
                             wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),wrist=int(pos_atual_wrist_angle),delta=dt)
                             tw0 = time.perf_counter()
+                            #if len(tipo_deteccao) > 2 and tipo_deteccao[-1] != "sacada" and tipo_deteccao[-2] :
+
                     #print(f'{s}Done. ({t2 - t1:.3f}s) - {fps} FPS')
 
                 cv2.namedWindow('N-yolo',cv2.WINDOW_NORMAL)
@@ -396,7 +434,13 @@ def main():
         "quantidade_frames": qtde_frames,
         "objeto_de_interesse": opt.objeto_interesse,
         "vetor_classificação_classes": str(predicao_classes),
-        "taxa_acerto_deteccao": predicao_classes.count(opt.objeto_interesse)/len(predicao_classes)
+        "taxa_acerto_deteccao": predicao_classes.count(opt.objeto_interesse)/len(predicao_classes),
+        "qtde_predicoes_tensor":qtde_predicoes_tensor,
+        "qtde_deteccoes_acc_temp_totais":qtde_deteccoes_acc_temp_totais,
+        "qtde_deteccoes_acc_temp_validas": qtde_deteccoes_acc_temp_validas,
+        "taxa_deteccoes_acc_temp": taxa_acc_temp,
+        "tipo_deteccao":tipo_deteccao,
+        "tempo_sacadas": tempo_sacada
 
     }
 
@@ -495,7 +539,10 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
     return img, ratio, (dw, dh)
 
 if __name__ == "__main__":
+    global wx
     try:
         main()
     except KeyboardInterrupt:
         print('Interrupted')
+    except:
+      wx.goSleep()
