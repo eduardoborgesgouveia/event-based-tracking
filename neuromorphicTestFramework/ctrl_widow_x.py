@@ -50,7 +50,16 @@ class widow_x():
         self.LIMITE_SUPERIOR_SEGURANCA_Y = 400
         self.LIMITE_INFERIOR_SEGURANCA_Y = 122
         self.LIMITE_SUPERIOR_SEGURANCA_Z = 350
-        self.LIMITE_INFERIOR_SEGURANCA_Z = 139
+        #self.LIMITE_INFERIOR_SEGURANCA_Z = 200
+        self.LIMITE_INFERIOR_SEGURANCA_Z = 160
+        ###### PARA EXTREMA SEGURANCA ####
+        #self.LIMITE_SUPERIOR_SEGURANCA_X = 1800
+        #self.LIMITE_INFERIOR_SEGURANCA_X = 1200
+        #self.LIMITE_SUPERIOR_SEGURANCA_Y = 400
+        #self.LIMITE_INFERIOR_SEGURANCA_Y = 180
+        #self.LIMITE_SUPERIOR_SEGURANCA_Z = 300
+        #self.LIMITE_INFERIOR_SEGURANCA_Z = 250
+
         self.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE = 95
         self.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE = 85
         self.RANGE_MOVIMENTO_X = self.LIMITE_SUPERIOR_SEGURANCA_X - self.LIMITE_INFERIOR_SEGURANCA_X
@@ -115,12 +124,12 @@ class widow_x():
         while not flagResposta:
             while self.comunicacaoSerial.out_waiting > 0:
                 i = 0
-                #print("aguardando enviar todos os bytes...")
+                print("aguardando enviar todos os bytes...")
+            print("enviando -> ", cmd)
             self.comunicacaoSerial.write(cmd)
             while self.comunicacaoSerial.out_waiting > 0:
                 i = 0
-                #print("aguardando enviar todos os bytes...")
-            print("enviando -> ", cmd)
+                print("aguardando enviar todos os bytes...")
             res = []
             if flagWaitForReply:
                 t0 = time.perf_counter()

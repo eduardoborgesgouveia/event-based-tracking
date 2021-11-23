@@ -39,7 +39,7 @@ from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 #40 e 0,45
-frameTime = 40000
+frameTime = 33000
 HOST = ''
 PORT = 8000
 clock = pygame.time.Clock()
@@ -106,8 +106,8 @@ def main():
     parser.add_argument('--path-to-save', type= str, default="data_experimentos" ,help='path to save the active tracking data')
     parser.add_argument('--name', type= str, default="experimento" ,help='name of the file to save information')
     parser.add_argument('--model', type= str, default="models/SITS/best.pt" ,help='path to weights')
-    parser.add_argument('--conf-thresh', type=float, default=0.3 ,help='confidence of the predictions')
-    parser.add_argument('--iou-thresh', type=float, default=0.5 ,help='confidence of the predictions')
+    parser.add_argument('--conf-thresh', type=float, default=0.25 ,help='confidence of the predictions')
+    parser.add_argument('--iou-thresh', type=float, default=0.45 ,help='confidence of the predictions')
     parser.add_argument('--speed', type=float, default=1 ,help='widowX speed')
     parser.add_argument('--num-objects', type=int, default=1 ,help='number of objects in scene')
     parser.add_argument('--id', type=str, default="sem_id",help='id for identification')
@@ -433,14 +433,15 @@ def main():
         "quantidade_deteccoes_tracking":qtde_deteccoes,
         "quantidade_frames": qtde_frames,
         "objeto_de_interesse": opt.objeto_interesse,
-        "vetor_classificação_classes": str(predicao_classes),
+        "vetor_classificacao_classes": str(predicao_classes),
         "taxa_acerto_deteccao": predicao_classes.count(opt.objeto_interesse)/len(predicao_classes),
         "qtde_predicoes_tensor":qtde_predicoes_tensor,
         "qtde_deteccoes_acc_temp_totais":qtde_deteccoes_acc_temp_totais,
         "qtde_deteccoes_acc_temp_validas": qtde_deteccoes_acc_temp_validas,
         "taxa_deteccoes_acc_temp": taxa_acc_temp,
         "tipo_deteccao":tipo_deteccao,
-        "tempo_sacadas": tempo_sacada
+        "tempo_sacadas": tempo_sacada,
+        "porcentagem_tempo_sacada": sum(tempo_sacada)/tempo_alcance
 
     }
 
