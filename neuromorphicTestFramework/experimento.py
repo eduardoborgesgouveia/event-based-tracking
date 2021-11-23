@@ -78,9 +78,9 @@ def main():
     pos_atual_wrist_angle = wx.POSICAO_INICIAL_WRIST_ANGLE #movimento do punho
     step_wrist_angle = 8
     k_perc = 0.015
-    k_x = wx.RANGE_MOVIMENTO_X*k_perc/4
+    k_x = wx.RANGE_MOVIMENTO_X*k_perc*4
     k_y = wx.RANGE_MOVIMENTO_Y*k_perc
-    k_z = wx.RANGE_MOVIMENTO_Z*k_perc
+    k_z = wx.RANGE_MOVIMENTO_Z*k_perc*3
     #k_z = 250
     print("kx: " + str(k_x) + " ky: " + str(k_y) + " kz: " + str(k_z))
     input("Press enter")
@@ -274,6 +274,7 @@ def main():
                         for c in det[:, -1].unique():
                             n = (det[:, -1] == c).sum()  # detections per class
                             s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
+
                         index_min, dist_center,centroid, erro_x,erro_z = getCloserToCenter(det)
 
                         # Write results
@@ -289,31 +290,6 @@ def main():
                         integral_z = integral_prior_z + erro_z * iteration_time
                         derivative_z = (erro_z - error_prior_z) / iteration_time
                         output_z = Kp_z*erro_z + Ki_z*integral_z + Kd_z*derivative_z
-
-                        step_y = 5
-                        if erro_x is not None and erro_x < 0:
-                            pos_atual_x += (abs(erro_x)/k_x)
-                            #pos_atual_x += (abs(erro_x)/k_x)
-                            if pos_atual_x >= wx.LIMITE_SUPERIOR_SEGURANCA_X:
-                                pos_atual_x = wx.LIMITE_SUPERIOR_SEGURANCA_X
-                        elif erro_x is not None and erro_x > 0:
-                            pos_atual_x -= (abs(erro_x)/k_x)
-                            if pos_atual_x <= wx.LIMITE_INFERIOR_SEGURANCA_X:
-                                pos_atual_x = wx.LIMITE_INFERIOR_SEGURANCA_X
-                        if erro_z is not None and erro_z < 0:
-                            pos_atual_z += (abs(erro_z)/k_z)
-                            if pos_atual_z >= wx.LIMITE_SUPERIOR_SEGURANCA_Z:
-                                pos_atual_z = wx.LIMITE_SUPERIOR_SEGURANCA_Z
-                        elif erro_z is not None and erro_z > 0:
-                            pos_atual_z -= (abs(erro_z)/k_z)
-                            if pos_atual_z <= wx.LIMITE_INFERIOR_SEGURANCA_Z:
-                                pos_atual_z = wx.LIMITE_INFERIOR_SEGURANCA_Z
-                        if pos_atual_y <= wx.LIMITE_INFERIOR_SEGURANCA_Y:
-                            pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
-                        elif pos_atual_y >= wx.LIMITE_SUPERIOR_SEGURANCA_Y:
-                            flagAlcance = False
-                            tf_alcance = time.time()
-                            pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
 
 
                         if(flagDistanceFilter):
@@ -332,11 +308,38 @@ def main():
                                 lastCentroid = centroid
                                 qtde_deteccoes_corretas += 1
                                 tipo_deteccao.append("valida")
+
+                                step_y = 3
+                                if erro_x is not None and erro_x < 0:
+                                    pos_atual_x += (abs(erro_x)/k_x)
+                                    #pos_atual_x += (abs(erro_x)/k_x)
+                                    if pos_atual_x >= wx.LIMITE_SUPERIOR_SEGURANCA_X:
+                                        pos_atual_x = wx.LIMITE_SUPERIOR_SEGURANCA_X
+                                elif erro_x is not None and erro_x > 0:
+                                    pos_atual_x -= (abs(erro_x)/k_x)
+                                    if pos_atual_x <= wx.LIMITE_INFERIOR_SEGURANCA_X:
+                                        pos_atual_x = wx.LIMITE_INFERIOR_SEGURANCA_X
+                                if erro_z is not None and erro_z < 0:
+                                    pos_atual_z += (abs(erro_z)/k_z)
+                                    if pos_atual_z >= wx.LIMITE_SUPERIOR_SEGURANCA_Z:
+                                        pos_atual_z = wx.LIMITE_SUPERIOR_SEGURANCA_Z
+                                elif erro_z is not None and erro_z > 0:
+                                    pos_atual_z -= (abs(erro_z)/k_z)
+                                    if pos_atual_z <= wx.LIMITE_INFERIOR_SEGURANCA_Z:
+                                        pos_atual_z = wx.LIMITE_INFERIOR_SEGURANCA_Z
+                                if pos_atual_y <= wx.LIMITE_INFERIOR_SEGURANCA_Y:
+                                    pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
+                                elif pos_atual_y >= wx.LIMITE_SUPERIOR_SEGURANCA_Y:
+                                    flagAlcance = False
+                                    tf_alcance = time.time()
+                                    pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
+
                                 if wx.isConnected:
                                     if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
                                         pos_atual_y += step_y
                                         wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
                                         tw0 = time.perf_counter()
+
                             else:
                                 tipo_deteccao.append("invalida")
                                 cv2.circle(im0, lastCentroid, 1, colors[0], 3)
