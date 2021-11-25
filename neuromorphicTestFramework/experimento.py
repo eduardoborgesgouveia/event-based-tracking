@@ -11,6 +11,7 @@ import sys
 import math
 import matplotlib.patches as patches
 from ctrl_widow_x import widow_x
+from collections import Counter
 
 from collections import deque
 sys.path.append('general/')
@@ -76,6 +77,9 @@ def main():
     pos_atual_y = wx.POSICAO_INICIAL_Y #movimento pra frente
     pos_atual_z = wx.POSICAO_INICIAL_Z #movimento vertical
     pos_atual_wrist_angle = wx.POSICAO_INICIAL_WRIST_ANGLE #movimento do punho
+    last_pos_atual_x = pos_atual_x
+    last_pos_atual_z = pos_atual_z
+    last_pos_atual_y = pos_atual_y
     step_wrist_angle = 8
     k_perc = 0.015
     k_x = wx.RANGE_MOVIMENTO_X*k_perc*4
@@ -182,7 +186,7 @@ def main():
 
 
     flagAlcance = True
-    ti_alcance = time.time()
+    
     qtde_frames = 0
     qtde_deteccoes = 0
     qtde_deteccoes_corretas = 0
@@ -205,8 +209,13 @@ def main():
     tempo_sacada = []
     tsF = 0
     ts0 = 0
+    
+    time_control = 0
     while flagAlcance:
         if len(filaFrame) > 0:
+            if time_control == 0:
+              ti_alcance = time.time()
+              time_control += 1
             count = len(filaFrame)
             mutex.acquire()
             for i in range(count):
@@ -257,13 +266,14 @@ def main():
                 # Apply NMS
                 pred = non_max_suppression(pred, opt.conf_thresh, opt.iou_thresh, classes=opt.classes, agnostic=opt.agnostic_nms)
                 #pred = non_max_suppression(pred, 0.25, 0.1, classes=opt.classes, agnostic=opt.agnostic_nms)
-                qtde_predicoes_tensor.append(len(pred))
+                #qtde_predicoes_tensor.append(len(pred))
                 t2 = time_synchronized()
                 # Process detections
                 for i, det in enumerate(pred):  # detections per image
                     s,im0, frame = '', img_visualize, 0
                     s += '%gx%g ' % img.shape[2:]  # print string
                     gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+                    qtde_predicoes_tensor.append(len(det))
                     if len(det):
                         qtde_deteccoes += 1
 
@@ -282,14 +292,6 @@ def main():
                         label = f'{names[int(cls)]} {conf:.2f}'
                         predicao_classes.append(int(cls))
 
-                        #controll signall
-                        integral_x = integral_prior_x + erro_x * iteration_time
-                        derivative_x = (erro_x - error_prior_x) / iteration_time
-                        output_x = Kp_x*erro_x + Ki_x*integral_x + Kd_x*derivative_x
-
-                        integral_z = integral_prior_z + erro_z * iteration_time
-                        derivative_z = (erro_z - error_prior_z) / iteration_time
-                        output_z = Kp_z*erro_z + Ki_z*integral_z + Kd_z*derivative_z
 
 
                         if(flagDistanceFilter):
@@ -312,7 +314,6 @@ def main():
                                 step_y = 3
                                 if erro_x is not None and erro_x < 0:
                                     pos_atual_x += (abs(erro_x)/k_x)
-                                    #pos_atual_x += (abs(erro_x)/k_x)
                                     if pos_atual_x >= wx.LIMITE_SUPERIOR_SEGURANCA_X:
                                         pos_atual_x = wx.LIMITE_SUPERIOR_SEGURANCA_X
                                 elif erro_x is not None and erro_x > 0:
@@ -333,6 +334,8 @@ def main():
                                     flagAlcance = False
                                     tf_alcance = time.time()
                                     pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
+                                
+                                
 
                                 if wx.isConnected:
                                     if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
@@ -343,6 +346,14 @@ def main():
                             else:
                                 tipo_deteccao.append("invalida")
                                 cv2.circle(im0, lastCentroid, 1, colors[0], 3)
+                                step_y = 3
+
+                                if wx.isConnected:
+                                    if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
+                                        pos_atual_y += step_y
+                                        wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
+                                        tw0 = time.perf_counter()
+
                         else:
                             plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
                             cv2.circle(im0, centroid, 1, colors[0], 3)
@@ -405,6 +416,9 @@ def main():
     tempo_alcance = tf_alcance - ti_alcance
     taxa_erro_percentual_frames = qtde_deteccoes/qtde_frames
     taxa_erro_percentual_deteccoes = qtde_deteccoes_corretas/qtde_deteccoes
+
+    c_t = Counter(tipo_deteccao)
+    
     ### PREPARACAO PARA SALVAR AS INFORMAÇÕES
     if not os.path.exists(opt.path_to_save):
         os.makedirs(opt.path_to_save)
@@ -443,8 +457,13 @@ def main():
         "qtde_deteccoes_acc_temp_validas": qtde_deteccoes_acc_temp_validas,
         "taxa_deteccoes_acc_temp": taxa_acc_temp,
         "tipo_deteccao":tipo_deteccao,
+        "quantidade_tipo_deteccao": c_t,
+        "percentagem_detec_sacada": (c_t["sacada"] if c_t["sacada"] else 0)/qtde_frames,
+        "percentagem_detec_valida": (c_t["valida"] if c_t["valida"] else 0)/qtde_frames,
+        "percentagem_detec_invalida": (c_t["invalida"] if c_t["invalida"] else 0)/qtde_frames,
         "tempo_sacadas": tempo_sacada,
-        "porcentagem_tempo_sacada": sum(tempo_sacada)/tempo_alcance
+        "porcentagem_tempo_sacada": sum(tempo_sacada)/tempo_alcance,
+        
 
     }
 

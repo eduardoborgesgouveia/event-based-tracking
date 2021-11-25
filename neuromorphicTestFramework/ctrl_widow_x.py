@@ -71,7 +71,7 @@ class widow_x():
         self.BUTTON_BYTE = 0x00 #do nothing
         #self.TIME = 2000 #time in miliseconds
         self.DELTA = 10 #delta value from the package. Range: 0 - 255
-        self.FREQ_MAX = 100
+        self.FREQ_MAX = 30
 
         #VARIAVEIS DE STATUS
         self.isConnected = False
