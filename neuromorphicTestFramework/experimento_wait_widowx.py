@@ -40,7 +40,7 @@ from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 #40 e 0,45
-frameTime = 30000
+frameTime = 35000
 HOST = ''
 PORT = 8000
 clock = pygame.time.Clock()
@@ -110,8 +110,8 @@ def main():
     parser.add_argument('--path-to-save', type= str, default="data_experimentos" ,help='path to save the active tracking data')
     parser.add_argument('--name', type= str, default="experimento" ,help='name of the file to save information')
     parser.add_argument('--model', type= str, default="models/SITS/best.pt" ,help='path to weights')
-    parser.add_argument('--conf-thresh', type=float, default=0.25 ,help='confidence of the predictions')
-    parser.add_argument('--iou-thresh', type=float, default=0.45 ,help='confidence of the predictions')
+    parser.add_argument('--conf-thresh', type=float, default=0.17 ,help='confidence of the predictions')
+    parser.add_argument('--iou-thresh', type=float, default=0.1 ,help='confidence of the predictions')
     parser.add_argument('--speed', type=float, default=1 ,help='widowX speed')
     parser.add_argument('--num-objects', type=int, default=1 ,help='number of objects in scene')
     parser.add_argument('--id', type=str, default="sem_id",help='id for identification')
@@ -162,6 +162,7 @@ def main():
     rects = []
     texts = []
     detection = []
+    qtde_nao_deteccao = 0
 
 #parametros da filtragem por distancia
     flagDistanceFilter = True
@@ -338,6 +339,8 @@ def main():
                                 
 
                                 if wx.isConnected:
+                                    while (time.perf_counter() - tw0 <(1/wx.FREQ_MAX)):
+                                      pass
                                     if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
                                         pos_atual_y += step_y
                                         wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
@@ -349,6 +352,8 @@ def main():
                                 step_y = 3
 
                                 if wx.isConnected:
+                                    while (time.perf_counter() - tw0 <(1/wx.FREQ_MAX)):
+                                      pass
                                     if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
                                         pos_atual_y += step_y
                                         wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
@@ -358,6 +363,8 @@ def main():
                             plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
                             cv2.circle(im0, centroid, 1, colors[0], 3)
                             if wx.isConnected:
+                                while (time.perf_counter() - tw0 <(1/wx.FREQ_MAX)):
+                                  pass
                                 if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
                                     pos_atual_y += step_y
                                     wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
@@ -383,26 +390,31 @@ def main():
 
 
                     else:
-                        ##responsavel por realizar o movimento de geração de eventos
-                        if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
-                            
-                            if len(tipo_deteccao) == 0 or tipo_deteccao[-1] != "sacada":
-                              ts0 = time.perf_counter()
+                        # qtde_nao_deteccao += 1
+                        # if qtde_nao_deteccao > 5:
+                        #   qtde_nao_deteccao = 0
+                          ##responsavel por realizar o movimento de geração de eventos
+                          while (time.perf_counter() - tw0 <(1/wx.FREQ_MAX)):
+                              pass
+                          if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
+                              
+                              if len(tipo_deteccao) == 0 or tipo_deteccao[-1] != "sacada":
+                                ts0 = time.perf_counter()
 
-                            tipo_deteccao.append("sacada")
-                            pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
-                            if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
-                                pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
-                                step_wrist_angle = -step_wrist_angle
-                            elif pos_atual_wrist_angle >= wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE:
-                                pos_atual_wrist_angle = wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE
-                                step_wrist_angle = -step_wrist_angle
-                            if pos_atual_y == wx.LIMITE_INFERIOR_SEGURANCA_Y:
-                                dt = wx.DELTA
-                            else:
-                                dt = 40
-                            wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),wrist=int(pos_atual_wrist_angle),delta=dt)
-                            tw0 = time.perf_counter()
+                              tipo_deteccao.append("sacada")
+                              pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
+                              if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
+                                  pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
+                                  step_wrist_angle = -step_wrist_angle
+                              elif pos_atual_wrist_angle >= wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE:
+                                  pos_atual_wrist_angle = wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE
+                                  step_wrist_angle = -step_wrist_angle
+                              if pos_atual_y == wx.LIMITE_INFERIOR_SEGURANCA_Y:
+                                  dt = wx.DELTA
+                              else:
+                                  dt = 40
+                              wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),wrist=int(pos_atual_wrist_angle),delta=dt)
+                              tw0 = time.perf_counter()
                             #if len(tipo_deteccao) > 2 and tipo_deteccao[-1] != "sacada" and tipo_deteccao[-2] :
 
                     #print(f'{s}Done. ({t2 - t1:.3f}s) - {fps} FPS')

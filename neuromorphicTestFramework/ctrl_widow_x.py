@@ -26,11 +26,17 @@ class widow_x():
         self.GO_SLEEP_CMD = [0xff, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x60, 0x9f]
         self.EMERGENCY_STOP_CMD = [0xff, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x11, 0xee]
         #self.START_POSITION_CMD = [0xFF, 0x04, 0xB0, 0x01, 0x12, 0x00, 0x5B, 0x00, 0x60, 0x02, 0x00, 0x01, 0x00, 0x7D, 0x00, 0x00, 0xFD]
-        self.START_POSITION_CMD = [0xFF, 0x05, 0x0A, 0x00, 0x7F, 0x00, 0xCA, 0x00, 0x5A, 0x02, 0x00, 0x01, 0x00, 0x7D, 0x00, 0x00, 0xCD]
-        self.POSICAO_INICIAL_X = 1290
-        self.POSICAO_INICIAL_Y = 127
-        self.POSICAO_INICIAL_Z = 202
-        self.POSICAO_INICIAL_WRIST_ANGLE = 90
+        #self.START_POSITION_CMD = [0xFF, 0x05, 0x0A, 0x00, 0x7F, 0x00, 0xCA, 0x00, 0x5A, 0x02, 0x00, 0x01, 0x00, 0x7D, 0x00, 0x00, 0xCD]
+        # self.POSICAO_INICIAL_X = 1290
+        # self.POSICAO_INICIAL_Y = 127
+        # self.POSICAO_INICIAL_Z = 202
+        # self.POSICAO_INICIAL_WRIST_ANGLE = 90
+        #valores em start position 1
+        self.START_POSITION_CMD = [0xFF, 0x05, 0x0E, 0x00, 0x8C, 0x00, 0xB6, 0x00, 0x3C, 0x02, 0x00, 0x01, 0x00, 0x7D, 0x00, 0x00, 0xEE]
+        self.POSICAO_INICIAL_X = 1294
+        self.POSICAO_INICIAL_Y = 140
+        self.POSICAO_INICIAL_Z = 182
+        self.POSICAO_INICIAL_WRIST_ANGLE = 60
         #LIMITES MÁXIMOS
         self.LIMITE_SUPERIOR_X = 0
         self.LIMITE_INFERIOR_X = 4059
@@ -38,7 +44,7 @@ class widow_x():
         self.LIMITE_INFERIOR_Y = 50
         self.LIMITE_SUPERIOR_Z = 350
         self.LIMITE_INFERIOR_Z = 20
-        self.LIMITE_INFERIOR_WRIST_ANGLE = 60
+        self.LIMITE_INFERIOR_WRIST_ANGLE = 58
         self.LIMITE_SUPERIOR_WRIST_ANGLE = 120
         self.LIMITE_INFERIOR_WRIST_ROTATE = 0
         self.LIMITE_INFERIOR_WRIST_ROTATE = 1023
@@ -60,8 +66,10 @@ class widow_x():
         #self.LIMITE_SUPERIOR_SEGURANCA_Z = 300
         #self.LIMITE_INFERIOR_SEGURANCA_Z = 250
 
+        # self.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE = 95
+        # self.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE = 85
         self.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE = 95
-        self.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE = 85
+        self.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE = 58
         self.RANGE_MOVIMENTO_X = self.LIMITE_SUPERIOR_SEGURANCA_X - self.LIMITE_INFERIOR_SEGURANCA_X
         self.RANGE_MOVIMENTO_Y = self.LIMITE_SUPERIOR_SEGURANCA_Y - self.LIMITE_INFERIOR_SEGURANCA_Y
         self.RANGE_MOVIMENTO_Z = self.LIMITE_SUPERIOR_SEGURANCA_Z - self.LIMITE_INFERIOR_SEGURANCA_Z
