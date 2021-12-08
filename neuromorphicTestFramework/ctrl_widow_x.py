@@ -78,7 +78,7 @@ class widow_x():
         self.EXTENDED_BYTE = 0x00 #move arm to position
         self.BUTTON_BYTE = 0x00 #do nothing
         #self.TIME = 2000 #time in miliseconds
-        self.DELTA = 10 #delta value from the package. Range: 0 - 255
+        self.DELTA = 5 #delta value from the package. Range: 0 - 255
         self.FREQ_MAX = 30
 
         #VARIAVEIS DE STATUS
@@ -186,9 +186,10 @@ class widow_x():
         self.comunicacaoSerial.write(self.EMERGENCY_STOP_CMD)
         print(self.comunicacaoSerial.readline())
 
-    def goSleep(self):
+    def goSleep(self,flagWait=False):
         self.comunicacaoSerial.write(self.GO_SLEEP_CMD)
-        print(self.comunicacaoSerial.readline())
+        if(flagWait):
+          print(self.comunicacaoSerial.readline())
 
     def goHome(self):
         self.comunicacaoSerial.write(self.GO_HOME_CMD)

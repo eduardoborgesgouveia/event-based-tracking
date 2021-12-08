@@ -1,4 +1,4 @@
-
+from threading import Lock
 import socket
 import serial as sr
 import time
@@ -7,116 +7,108 @@ import utilsDVS128
 import matplotlib.pyplot as plt
 import copy
 import numpy as np
-import sys
 import math
 import matplotlib.patches as patches
 from ctrl_widow_x import widow_x
 from collections import Counter
-
 from collections import deque
-sys.path.append('general/')
-from threading import Lock
-from threadhandler import ThreadHandler
-import argparse
-import time
-from pathlib import Path
-from filterUtils import filterUtils as fu
 
-import cv2
-import torch
-import torch.backends.cudnn as cudnn
-from numpy import random
-
-import os
-from os import path
-from datetime import datetime
-import json
-
-from models.experimental import attempt_load
-from utils.datasets import LoadStreams, LoadImages
+from utils.torch_utils import select_device, load_classifier, time_synchronized
+from utils.plots import plot_one_box
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
-from utils.plots import plot_one_box
-from utils.torch_utils import select_device, load_classifier, time_synchronized
+from utils.datasets import LoadStreams, LoadImages
+from models.experimental import attempt_load
+import json
+from datetime import datetime
+from os import path
+import os
+from numpy import random
+import torch.backends.cudnn as cudnn
+import torch
+import cv2
+from filterUtils import filterUtils as fu
+from pathlib import Path
+import argparse
+import sys
 
-#40 e 0,45
+sys.path.append('general/')
+from threadhandler import ThreadHandler
+
+# 40 e 0,45
 frameTime = 35000
 HOST = ''
 PORT = 8000
 clock = pygame.time.Clock()
 
 
-
 def aquisicaoDvs():
-    global udp, pol, x, y, ts, filaFrame,mutex, ts_LSB, ts_MSB
+    global udp, pol, x, y, ts, filaFrame, mutex, ts_LSB, ts_MSB
     msg, cliente = udp.recvfrom(5000000)
     vet = []
     for a in msg:
         vet.append(a)
-    size = int(len(vet)/5)
-    pol.extend(vet[ : size])
-    x.extend(vet[size : 2 * size])
-    y.extend(vet[2 * size : 3 * size])
-    ts_LSB.extend(vet[3 * size : 4 * size])
-    ts_MSB.extend(vet[4 * size : ])
+    size = int(len(vet) / 5)
+    pol.extend(vet[:size])
+    x.extend(vet[size:2 * size])
+    y.extend(vet[2 * size:3 * size])
+    ts_LSB.extend(vet[3 * size:4 * size])
+    ts_MSB.extend(vet[4 * size:])
     ts = list(map(lambda LSB, MSB: LSB + (MSB << 8), ts_LSB, ts_MSB))
     if sum(ts) >= frameTime:
         mutex.acquire()
-        filaFrame.append([pol,y,x])
+        filaFrame.append([pol, y, x])
         pol, x, y, ts_LSB, ts_MSB = [], [], [], [], []
         mutex.release()
 
 
-
 def main():
     global wx
-    #posição de controle
+    # posição de controle
     wx = widow_x()
     wx.connect()
-    pos_atual_x = wx.POSICAO_INICIAL_X #movimento horizontal
-    pos_atual_y = wx.POSICAO_INICIAL_Y #movimento pra frente
-    pos_atual_z = wx.POSICAO_INICIAL_Z #movimento vertical
-    pos_atual_wrist_angle = wx.POSICAO_INICIAL_WRIST_ANGLE #movimento do punho
+    pos_atual_x = wx.POSICAO_INICIAL_X  # movimento horizontal
+    pos_atual_y = wx.POSICAO_INICIAL_Y  # movimento pra frente
+    pos_atual_z = wx.POSICAO_INICIAL_Z  # movimento vertical
+    pos_atual_wrist_angle = wx.POSICAO_INICIAL_WRIST_ANGLE  # movimento do punho
     last_pos_atual_x = pos_atual_x
     last_pos_atual_z = pos_atual_z
     last_pos_atual_y = pos_atual_y
     step_wrist_angle = 8
     k_perc = 0.015
-    k_x = wx.RANGE_MOVIMENTO_X*k_perc*4
-    k_y = wx.RANGE_MOVIMENTO_Y*k_perc
-    k_z = wx.RANGE_MOVIMENTO_Z*k_perc*3
+    k_x = wx.RANGE_MOVIMENTO_X * k_perc * 4
+    k_y = wx.RANGE_MOVIMENTO_Y * k_perc
+    k_z = wx.RANGE_MOVIMENTO_Z * k_perc * 8
     #k_z = 250
     print("kx: " + str(k_x) + " ky: " + str(k_y) + " kz: " + str(k_z))
     input("Press enter")
     threadAquisicao = ThreadHandler(aquisicaoDvs)
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='data/images', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
-    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
-    parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
-    parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-    parser.add_argument('--augment', action='store_true', help='augmented inference')
-    parser.add_argument('--update', action='store_true', help='update all models')
-    parser.add_argument('--project', default='runs/detect', help='save results to project/name')
-    parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
-
-
-    parser.add_argument('--path-to-save', type= str, default="data_experimentos" ,help='path to save the active tracking data')
-    parser.add_argument('--name', type= str, default="experimento" ,help='name of the file to save information')
-    parser.add_argument('--model', type= str, default="models/SITS/best.pt" ,help='path to weights')
-    parser.add_argument('--conf-thresh', type=float, default=0.30 ,help='confidence of the predictions')
-    parser.add_argument('--iou-thresh', type=float, default=0.5 ,help='confidence of the predictions')
-    parser.add_argument('--speed', type=float, default=1 ,help='widowX speed')
-    parser.add_argument('--num-objects', type=int, default=1 ,help='number of objects in scene')
-    parser.add_argument('--id', type=str, default="sem_id",help='id for identification')
-    parser.add_argument('--objeto-interesse', type=int, default=None,help='class of the object of interest:::  0: Banana 1: Cup  2: Fork    3: Key    4: Knife    5: Mug    6: Orange')
-
+    parser.add_argument('--weights',nargs='+',type=str,default='yolov5s.pt',help='model.pt path(s)')
+    # file/folder, 0 for webcam
+    parser.add_argument('--source',type=str,default='data/images',help='source')
+    parser.add_argument('--img-size',type=int, default=640,help='inference size (pixels)')
+    parser.add_argument('--conf-thres',type=float,default=0.25,help='object confidence threshold')
+    parser.add_argument('--iou-thres',type=float,default=0.45,help='IOU threshold for NMS')
+    parser.add_argument('--device',default='',help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--view-img',action='store_true',help='display results')
+    parser.add_argument('--save-txt',action='store_true',help='save results to *.txt')
+    parser.add_argument('--save-conf',action='store_true',help='save confidences in --save-txt labels')
+    parser.add_argument('--classes',nargs='+',type=int,help='filter by class: --class 0, or --class 0 2 3')
+    parser.add_argument('--agnostic-nms', action='store_true',help='class-agnostic NMS')
+    parser.add_argument('--augment',action='store_true',help='augmented inference')
+    parser.add_argument('--update',action='store_true',help='update all models')
+    parser.add_argument('--project',default='runs/detect',help='save results to project/name')
+    parser.add_argument('--exist-ok',action='store_true',help='existing project/name ok, do not increment')
+    parser.add_argument('--path-to-save',type=str,default="data_experimentos", help='path to save the active tracking data')
+    parser.add_argument('--name',type=str,default="experimento",help='name of the file to save information')
+    parser.add_argument('--model',type=str,default="models/SITS/best.pt",help='path to weights')
+    parser.add_argument('--conf-thresh',type=float, default=0.30,help='confidence of the predictions')
+    parser.add_argument('--iou-thresh',type=float, default=0.5,help='confidence of the predictions')
+    parser.add_argument('--speed', type=float, default=1, help='widowX speed')
+    parser.add_argument('--num-objects',type=int,default=1,help='number of objects in scene')
+    parser.add_argument('--id',type=str,default="sem_id",help='id for identification')
+    parser.add_argument('--objeto-interesse',type=int,default=None,help='class of the object of interest:::  0: Banana 1: Cup  2: Fork    3: Key    4: Knife    5: Mug    6: Orange')
 
     opt = parser.parse_args()
     obj_interesse = opt.objeto_interesse
@@ -127,7 +119,7 @@ def main():
         wx.DELTA = 120
 
     weights, imgsz = opt.model, 128
-    device = select_device('') #CUDA
+    device = select_device('')  # CUDA
     half = device.type != 'cpu'  # half precision only supported on CUDA
     # Load model
     model = attempt_load(weights, map_location=device)
@@ -146,8 +138,9 @@ def main():
     global mutex
     mutex = Lock()
     filaFrame = deque()
-    font = {'family': 'serif',
-        'color':  'white',
+    font = {
+        'family': 'serif',
+        'color': 'white',
         'weight': 'normal',
         'size': 8,
     }
@@ -164,16 +157,16 @@ def main():
     detection = []
     qtde_nao_deteccao = 0
 
-#parametros da filtragem por distancia
+    # parametros da filtragem por distancia
     flagDistanceFilter = True
-    mediaMovelDistancia = [0,0,0]
+    mediaMovelDistancia = [0, 0, 0]
     qtdeMediaMovel = 3
     thresholdDistanceFilter = 0.2
     maxDistanceImage = math.sqrt(128**2 + 128**2)
-    thresholdDistanceFilter = thresholdDistanceFilter*maxDistanceImage
-    lastCentroid = (0,0)
+    thresholdDistanceFilter = thresholdDistanceFilter * maxDistanceImage
+    lastCentroid = (0, 0)
     distancia = 0
-#fim dos parametros
+    # fim dos parametros
     # used to record the time when we processed last frame
     prev_frame_time = 0
 
@@ -185,9 +178,8 @@ def main():
 
     threadAquisicao.start()
 
-
     flagAlcance = True
-    
+
     qtde_frames = 0
     qtde_deteccoes = 0
     qtde_deteccoes_corretas = 0
@@ -195,13 +187,13 @@ def main():
     integral_prior_z = 0
     error_prior_x = 0
     integral_prior_x = 0
-    iteration_time = (1/wx.FREQ_MAX)
-    Kp_x = 0.02*k_x
-    Ki_x = 0.05*Kp_x/iteration_time
-    Kd_x = (Kp_x*iteration_time)/160
-    Kp_z = 0.02*k_z
-    Ki_z = 0.05*Kp_z/iteration_time
-    Kd_z = (Kp_z*iteration_time)/160
+    iteration_time = (1 / wx.FREQ_MAX)
+    Kp_x = 0.02 * k_x
+    Ki_x = 0.05 * Kp_x / iteration_time
+    Kd_x = (Kp_x * iteration_time) / 160
+    Kp_z = 0.2 * k_z
+    Ki_z = 0.05 * Kp_z / iteration_time
+    Kd_z = (Kp_z * iteration_time) / 160
     qtde_predicoes_tensor = []
     qtde_deteccoes_acc_temp_totais = []
     qtde_deteccoes_acc_temp_validas = []
@@ -212,29 +204,33 @@ def main():
     ts0 = 0
     zf = 0
     time_control = 0
+    frames_originais = []
+    frames_com_deteccao = []
     while flagAlcance:
         if len(filaFrame) > 0:
             if time_control == 0:
-              ti_alcance = time.time()
-              time_control += 1
+                ti_alcance = time.time()
+                time_control += 1
             count = len(filaFrame)
-            
-            #for i in range(count):
+
+            # for i in range(count):
             if zf == count:
                 zf = 0
                 qtde_frames += 1
                 mutex.acquire()
                 frame = filaFrame[-1]
                 mutex.release()
-                #if i == count -1:
-                displayEvents.plotEventsF(frame[0],frame[1],frame[2])
+                # if i == count -1:
+                displayEvents.plotEventsF(frame[0], frame[1], frame[2])
                 img = displayEvents.frame
-                img_visualize = np.dstack([img,img,img])
+                img_visualize = np.dstack([img, img, img])
                 img_visualize = img_visualize.astype(np.uint8).copy()
+                img_save = img_visualize.astype(np.uint8).copy()
+                frames_originais.append(img_save)
                 s = img.copy()
                 s[s == 0] = 255
-                s[s==127.5] = 0
-                imgO = np.dstack([s,s,s])
+                s[s == 127.5] = 0
+                imgO = np.dstack([s, s, s])
                 imgO = imgO.astype(np.uint8).copy()
                 #img0 = fu.median(imgO,7)
                 # time when we finish processing for this frame
@@ -242,7 +238,7 @@ def main():
                 # fps will be number of frame processed in given time frame
                 # since their will be most of time error of 0.001 second
                 # we will be subtracting it to get more accurate result
-                fps = 1/(new_frame_time-prev_frame_time)
+                fps = 1 / (new_frame_time - prev_frame_time)
                 prev_frame_time = new_frame_time
                 # converting the fps into integer
                 fps = int(fps)
@@ -254,7 +250,8 @@ def main():
                 img = letterbox(imgO, imgsz, stride=stride)[0]
 
                 # Convert
-                img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+                # BGR to RGB, to 3x416x416
+                img = img[:, :, ::-1].transpose(2, 0, 1)
                 img = np.ascontiguousarray(img)
 
                 img = torch.from_numpy(img).to(device)
@@ -269,48 +266,60 @@ def main():
                 pred = model(img, augment=opt.augment)[0]
 
                 # Apply NMS
-                pred = non_max_suppression(pred, opt.conf_thresh, opt.iou_thresh, classes=opt.classes, agnostic=opt.agnostic_nms)
+                pred = non_max_suppression(pred,
+                                           opt.conf_thresh,
+                                           opt.iou_thresh,
+                                           classes=opt.classes,
+                                           agnostic=opt.agnostic_nms)
                 #pred = non_max_suppression(pred, 0.25, 0.1, classes=opt.classes, agnostic=opt.agnostic_nms)
-                #qtde_predicoes_tensor.append(len(pred))
+                # qtde_predicoes_tensor.append(len(pred))
                 t2 = time_synchronized()
                 # Process detections
                 for i, det in enumerate(pred):  # detections per image
-                    s,im0, frame = '', img_visualize, 0
+                    s, im0, frame = '', img_visualize, 0
                     s += '%gx%g ' % img.shape[2:]  # print string
-                    gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+                    # normalization gain whwh
+                    gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]
                     qtde_predicoes_tensor.append(len(det))
                     if len(det):
                         qtde_deteccoes += 1
 
                         # Rescale boxes from img_size to im0 size
-                        det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                        det[:, :4] = scale_coords(img.shape[2:], det[:, :4],
+                                                  im0.shape).round()
 
                         # Print results
                         for c in det[:, -1].unique():
                             n = (det[:, -1] == c).sum()  # detections per class
-                            s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
+                            # add to string
+                            s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "
 
-                        index_min, dist_center,centroid, erro_x,erro_z = getCloserToCenter(det)
+                        index_min, dist_center, centroid, erro_x, erro_z = getCloserToCenter(det)
 
                         # Write results
                         *xyxy, conf, cls = reversed(det)[index_min]
                         label = f'{names[int(cls)]} {conf:.2f}'
                         predicao_classes.append(int(cls))
 
-
-
-                        if(flagDistanceFilter):
-                            if len(tipo_deteccao) > 0 and tipo_deteccao[-1] == "sacada":
-                              tsF = time.perf_counter()
-                              tempo_sacada.append(tsF - ts0)
-                            if(lastCentroid != (0,0)):
-                                distancia = getDistanciaPontos(centroid, lastCentroid)
+                        if (flagDistanceFilter):
+                            if len(tipo_deteccao
+                                   ) > 0 and tipo_deteccao[-1] == "sacada":
+                                tsF = time.perf_counter()
+                                tempo_sacada.append(tsF - ts0)
+                            if (lastCentroid != (0, 0)):
+                                distancia = getDistanciaPontos(
+                                    centroid, lastCentroid)
                                 mediaMovelDistancia.append(distancia)
-                            distanciaMedia = moving_average(mediaMovelDistancia,len(mediaMovelDistancia))
-                            if(len(mediaMovelDistancia)>qtdeMediaMovel):
+                            distanciaMedia = moving_average(
+                                mediaMovelDistancia, len(mediaMovelDistancia))
+                            if (len(mediaMovelDistancia) > qtdeMediaMovel):
                                 mediaMovelDistancia = mediaMovelDistancia[1:-1]
-                            if(distancia < thresholdDistanceFilter):
-                                plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
+                            if (distancia < thresholdDistanceFilter):
+                                plot_one_box(xyxy,
+                                             im0,
+                                             label="",
+                                             color=colors[0],
+                                             line_thickness=3)
                                 cv2.circle(im0, centroid, 1, colors[0], 3)
                                 lastCentroid = centroid
                                 qtde_deteccoes_corretas += 1
@@ -318,19 +327,19 @@ def main():
 
                                 step_y = 3
                                 if erro_x is not None and erro_x < 0:
-                                    pos_atual_x += (abs(erro_x)/k_x)
+                                    pos_atual_x += (abs(erro_x) / k_x)
                                     if pos_atual_x >= wx.LIMITE_SUPERIOR_SEGURANCA_X:
                                         pos_atual_x = wx.LIMITE_SUPERIOR_SEGURANCA_X
                                 elif erro_x is not None and erro_x > 0:
-                                    pos_atual_x -= (abs(erro_x)/k_x)
+                                    pos_atual_x -= (abs(erro_x) / k_x)
                                     if pos_atual_x <= wx.LIMITE_INFERIOR_SEGURANCA_X:
                                         pos_atual_x = wx.LIMITE_INFERIOR_SEGURANCA_X
                                 if erro_z is not None and erro_z < 0:
-                                    pos_atual_z += (abs(erro_z)/k_z)
+                                    pos_atual_z += (abs(erro_z) / k_z)
                                     if pos_atual_z >= wx.LIMITE_SUPERIOR_SEGURANCA_Z:
                                         pos_atual_z = wx.LIMITE_SUPERIOR_SEGURANCA_Z
                                 elif erro_z is not None and erro_z > 0:
-                                    pos_atual_z -= (abs(erro_z)/k_z)
+                                    pos_atual_z -= (abs(erro_z) / k_z)
                                     if pos_atual_z <= wx.LIMITE_INFERIOR_SEGURANCA_Z:
                                         pos_atual_z = wx.LIMITE_INFERIOR_SEGURANCA_Z
                                 if pos_atual_y <= wx.LIMITE_INFERIOR_SEGURANCA_Y:
@@ -339,105 +348,127 @@ def main():
                                     flagAlcance = False
                                     tf_alcance = time.time()
                                     pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
-                                
-                                
 
                                 if wx.isConnected:
-                                    while (time.perf_counter() - tw0 <(1/wx.FREQ_MAX)):
-                                      pass
-                                    if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
+                                    # while (time.perf_counter() - tw0 <(1 / wx.FREQ_MAX)):
+                                    #     pass
+                                    if (time.perf_counter() - tw0 >(1 / wx.FREQ_MAX)):
                                         pos_atual_y += step_y
-                                        wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
+                                        wx.sendValue(int(pos_atual_x),
+                                                     int(pos_atual_y),
+                                                     int(pos_atual_z),
+                                                     delta=None)
                                         tw0 = time.perf_counter()
 
                             else:
                                 tipo_deteccao.append("invalida")
                                 cv2.circle(im0, lastCentroid, 1, colors[0], 3)
-                                step_y = 3
+                                # step_y = 3
 
-                                if wx.isConnected:
-                                    while (time.perf_counter() - tw0 <(1/wx.FREQ_MAX)):
-                                      pass
-                                    if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
-                                        pos_atual_y += step_y
-                                        wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
-                                        tw0 = time.perf_counter()
+                                # if wx.isConnected:
+                                #     while (time.perf_counter() - tw0 <(1 / wx.FREQ_MAX)):
+                                #         pass
+                                #     if (time.perf_counter() - tw0 >(1 / wx.FREQ_MAX)):
+                                #         pos_atual_y += step_y
+                                #         wx.sendValue(int(pos_atual_x),
+                                #                      int(pos_atual_y),
+                                #                      int(pos_atual_z),
+                                #                      delta=None)
+                                #         tw0 = time.perf_counter()
 
                         else:
-                            plot_one_box(xyxy, im0, label="", color=colors[0], line_thickness=3)
+                            #else do filtro de filtragem por distância
+                            plot_one_box(xyxy,
+                                         im0,
+                                         label="",
+                                         color=colors[0],
+                                         line_thickness=3)
                             cv2.circle(im0, centroid, 1, colors[0], 3)
                             if wx.isConnected:
-                                while (time.perf_counter() - tw0 <(1/wx.FREQ_MAX)):
-                                  pass
-                                if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
+                                # while (time.perf_counter() - tw0 <(1 / wx.FREQ_MAX)):
+                                #     pass
+                                if (time.perf_counter() - tw0 > (1 / wx.FREQ_MAX)):
                                     pos_atual_y += step_y
-                                    wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),delta=None)
+                                    wx.sendValue(int(pos_atual_x),
+                                                 int(pos_atual_y),
+                                                 int(pos_atual_z),
+                                                 delta=None)
                                     tw0 = time.perf_counter()
 
                         if qtde_deteccoes % 5 == 0:
 
-                          if len(qtde_deteccoes_acc_temp_validas) == 0:
-                            last_value_val = 0
-                          else:
-                            last_value_val = qtde_deteccoes_acc_temp_validas[-1]
+                            if len(qtde_deteccoes_acc_temp_validas) == 0:
+                                last_value_val = 0
+                            else:
+                                last_value_val = qtde_deteccoes_acc_temp_validas[-1]
 
-                          if len(qtde_deteccoes_acc_temp_totais) == 0:
-                            last_value_tot = 0
-                          else:
-                            last_value_tot = qtde_deteccoes_acc_temp_totais[-1]
+                            if len(qtde_deteccoes_acc_temp_totais) == 0:
+                                last_value_tot = 0
+                            else:
+                                last_value_tot = qtde_deteccoes_acc_temp_totais[-1]
 
-                          qtde_deteccoes_acc_temp_totais.append(qtde_deteccoes)
-                          qtde_deteccoes_acc_temp_validas.append(qtde_deteccoes_corretas)
+                            qtde_deteccoes_acc_temp_totais.append(
+                                qtde_deteccoes)
+                            qtde_deteccoes_acc_temp_validas.append(
+                                qtde_deteccoes_corretas)
 
-
-                          taxa_acc_temp.append((qtde_deteccoes_corretas - last_value_val)/(qtde_deteccoes - last_value_tot))
-
+                            taxa_acc_temp.append(
+                                (qtde_deteccoes_corretas - last_value_val) /
+                                (qtde_deteccoes - last_value_tot))
 
                     else:
                         # qtde_nao_deteccao += 1
                         # if qtde_nao_deteccao > 5:
                         #   qtde_nao_deteccao = 0
-                          ##responsavel por realizar o movimento de geração de eventos
-                          while (time.perf_counter() - tw0 <(1/wx.FREQ_MAX)):
-                              pass
-                          if(time.perf_counter() - tw0 > (1/wx.FREQ_MAX)):
-                              
-                              if len(tipo_deteccao) == 0 or tipo_deteccao[-1] != "sacada":
+                        # responsavel por realizar o movimento de geração de eventos
+                        # while (time.perf_counter() - tw0 < (1 / wx.FREQ_MAX)):
+                        #     pass
+                        if (time.perf_counter() - tw0 > (1 / wx.FREQ_MAX)):
+                            if len(tipo_deteccao) == 0 or tipo_deteccao[-1] != "sacada":
                                 ts0 = time.perf_counter()
 
-                              tipo_deteccao.append("sacada")
-                              pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
-                              if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
-                                  pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
-                                  step_wrist_angle = -step_wrist_angle
-                              elif pos_atual_wrist_angle >= wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE:
-                                  pos_atual_wrist_angle = wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE
-                                  step_wrist_angle = -step_wrist_angle
-                              if pos_atual_y == wx.LIMITE_INFERIOR_SEGURANCA_Y:
-                                  dt = wx.DELTA
-                              else:
-                                  dt = 40
-                              wx.sendValue(int(pos_atual_x),int(pos_atual_y),int(pos_atual_z),wrist=int(pos_atual_wrist_angle),delta=dt)
-                              tw0 = time.perf_counter()
-                            #if len(tipo_deteccao) > 2 and tipo_deteccao[-1] != "sacada" and tipo_deteccao[-2] :
+                            tipo_deteccao.append("sacada")
+                            pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
+                            if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
+                                pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
+                                step_wrist_angle = -step_wrist_angle
+                            elif pos_atual_wrist_angle >= wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE:
+                                pos_atual_wrist_angle = wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE
+                                step_wrist_angle = -step_wrist_angle
+                            # if pos_atual_y == wx.LIMITE_INFERIOR_SEGURANCA_Y:
+                            #     dt = wx.DELTA
+                            # else:
+                            #     dt = 40
+                            # wx.sendValue(int(pos_atual_x),
+                            #              int(pos_atual_y),
+                            #              int(pos_atual_z),
+                            #              wrist=int(pos_atual_wrist_angle),
+                            #              delta=dt)
+                            wx.sendValue(int(pos_atual_x),
+                                         int(pos_atual_y),
+                                         int(pos_atual_z),
+                                         wrist=int(pos_atual_wrist_angle))
+                            tw0 = time.perf_counter()
+                            # if len(tipo_deteccao) > 2 and tipo_deteccao[-1] != "sacada" and tipo_deteccao[-2] :
 
                     #print(f'{s}Done. ({t2 - t1:.3f}s) - {fps} FPS')
 
-                cv2.namedWindow('N-yolo',cv2.WINDOW_NORMAL)
-                cv2.resizeWindow('N-yolo', 400,400)
+                cv2.namedWindow('N-yolo', cv2.WINDOW_NORMAL)
+                cv2.resizeWindow('N-yolo', 400, 400)
                 cv2.imshow('N-yolo', im0)
+                frames_com_deteccao.append(im0)
 
                 cv2.waitKey(1)  # 1 millisecond
             else:
-                zf+=1
-            
+                zf += 1
+
     tempo_alcance = tf_alcance - ti_alcance
-    taxa_erro_percentual_frames = qtde_deteccoes/qtde_frames
-    taxa_erro_percentual_deteccoes = qtde_deteccoes_corretas/qtde_deteccoes
+    taxa_erro_percentual_frames = qtde_deteccoes / qtde_frames
+    taxa_erro_percentual_deteccoes = qtde_deteccoes_corretas / qtde_deteccoes
 
     c_t = Counter(tipo_deteccao)
-    
-    ### PREPARACAO PARA SALVAR AS INFORMAÇÕES
+
+    # PREPARACAO PARA SALVAR AS INFORMAÇÕES
     if not os.path.exists(opt.path_to_save):
         os.makedirs(opt.path_to_save)
 
@@ -445,49 +476,86 @@ def main():
     now = datetime.now()
     dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
     fileName = opt.name + "_" + dt_string
-    f = open(opt.path_to_save + "/" + fileName +".json", "w+")
-    dataToSave = {
-        "id": opt.id,
-        "Confianca" : opt.conf_thresh,
-        "limiar_IOU" : opt.iou_thresh,
-        "Kpx" : k_x,
-        "Kpy" : k_y,
-        "Kpz" : k_z,
-        "pos_inicial_x":wx.POSICAO_INICIAL_X,
-        "pos_inicial_y":wx.POSICAO_INICIAL_Y,
-        "pos_inicial_z":wx.POSICAO_INICIAL_Z,
-        "frame_time": frameTime,
-        "freq_widowX": wx.FREQ_MAX,
-        "velocidade":wx.DELTA,
-        "filtragemDistancia": flagDistanceFilter,
-        "limiar_distancia_pixel": thresholdDistanceFilter,
-        "numero_objetos": opt.num_objects,
-        "tempo_alcance": tempo_alcance,
-        "taxa_acerto_percentual_tracking": taxa_erro_percentual_frames,
-        "taxa_acerto_percentual_deteccoes": taxa_erro_percentual_deteccoes,
-        "quantidade_deteccoes_tracking":qtde_deteccoes,
-        "quantidade_frames": qtde_frames,
-        "objeto_de_interesse": opt.objeto_interesse,
-        "vetor_classificacao_classes": str(predicao_classes),
-        "taxa_acerto_deteccao": predicao_classes.count(opt.objeto_interesse)/len(predicao_classes),
-        "qtde_predicoes_tensor":qtde_predicoes_tensor,
-        "qtde_deteccoes_acc_temp_totais":qtde_deteccoes_acc_temp_totais,
-        "qtde_deteccoes_acc_temp_validas": qtde_deteccoes_acc_temp_validas,
-        "taxa_deteccoes_acc_temp": taxa_acc_temp,
-        "tipo_deteccao":tipo_deteccao,
-        "quantidade_tipo_deteccao": c_t,
-        "percentagem_detec_sacada": (c_t["sacada"] if c_t["sacada"] else 0)/qtde_frames,
-        "percentagem_detec_valida": (c_t["valida"] if c_t["valida"] else 0)/qtde_frames,
-        "percentagem_detec_invalida": (c_t["invalida"] if c_t["invalida"] else 0)/qtde_frames,
-        "tempo_sacadas": tempo_sacada,
-        "porcentagem_tempo_sacada": sum(tempo_sacada)/tempo_alcance,
-        
 
+    filmaker(frames_com_deteccao, tempo_alcance,opt.path_to_save + "/" + fileName + "_com_deteccao.avi")
+
+    filmaker(frames_originais,tempo_alcance,opt.path_to_save + "/" + fileName + "_sem_deteccao.avi")
+
+    f = open(opt.path_to_save + "/" + fileName + ".json", "w+")
+    dataToSave = {
+        "id":
+        opt.id,
+        "Confianca":
+        opt.conf_thresh,
+        "limiar_IOU":
+        opt.iou_thresh,
+        "Kpx":
+        k_x,
+        "Kpy":
+        k_y,
+        "Kpz":
+        k_z,
+        "pos_inicial_x":
+        wx.POSICAO_INICIAL_X,
+        "pos_inicial_y":
+        wx.POSICAO_INICIAL_Y,
+        "pos_inicial_z":
+        wx.POSICAO_INICIAL_Z,
+        "frame_time":
+        frameTime,
+        "freq_widowX":
+        wx.FREQ_MAX,
+        "velocidade":
+        wx.DELTA,
+        "filtragemDistancia":
+        flagDistanceFilter,
+        "limiar_distancia_pixel":
+        thresholdDistanceFilter,
+        "numero_objetos":
+        opt.num_objects,
+        "tempo_alcance":
+        tempo_alcance,
+        "taxa_acerto_percentual_tracking":
+        taxa_erro_percentual_frames,
+        "taxa_acerto_percentual_deteccoes":
+        taxa_erro_percentual_deteccoes,
+        "quantidade_deteccoes_tracking":
+        qtde_deteccoes,
+        "quantidade_frames":
+        qtde_frames,
+        "objeto_de_interesse":
+        opt.objeto_interesse,
+        "vetor_classificacao_classes":
+        str(predicao_classes),
+        "taxa_acerto_deteccao":
+        predicao_classes.count(opt.objeto_interesse) / len(predicao_classes),
+        "qtde_predicoes_tensor":
+        qtde_predicoes_tensor,
+        "qtde_deteccoes_acc_temp_totais":
+        qtde_deteccoes_acc_temp_totais,
+        "qtde_deteccoes_acc_temp_validas":
+        qtde_deteccoes_acc_temp_validas,
+        "taxa_deteccoes_acc_temp":
+        taxa_acc_temp,
+        "tipo_deteccao":
+        tipo_deteccao,
+        "quantidade_tipo_deteccao":
+        c_t,
+        "percentagem_detec_sacada":
+        (c_t["sacada"] if c_t["sacada"] else 0) / qtde_frames,
+        "percentagem_detec_valida":
+        (c_t["valida"] if c_t["valida"] else 0) / qtde_frames,
+        "percentagem_detec_invalida":
+        (c_t["invalida"] if c_t["invalida"] else 0) / qtde_frames,
+        "tempo_sacadas":
+        tempo_sacada,
+        "porcentagem_tempo_sacada":
+        sum(tempo_sacada) / tempo_alcance,
     }
 
     json.dump(dataToSave, f)
 
-    #f.write("Parametros iniciais"\n")
+    # f.write("Parametros iniciais"\n")
     #f.write("Confiança: " + str(opt.conf_thresh) + "\n")
     #f.write("limiar IOU: " + str(opt.iou_thresh) + "\n")
     #f.write("Kpx: " + str(k_x) + " Kpy: " + str(k_y) + " Kpz: " + str(k_z) + "\n")
@@ -497,57 +565,80 @@ def main():
 
     f.close()
 
-    ###--------------------------------------
-
+    # --------------------------------------
+    input("Go Home -- press enter")
+    wx.goSleep()
+    
     udp.close()
-
 
 
 def getCloserToCenter(det):
     dists = []
-    centroid = (0,0)
+    centroid = (0, 0)
     dist_center = 0
     for *coord, conf, cls in reversed(det):
         centroid = getCentroid(coord)
         dist_center, erro_x, erro_z = getError(centroid)
         dists.append(dist_center)
     index_min = np.argmin(dists)
-    return index_min, dist_center,centroid, erro_x,erro_z
+    return index_min, dist_center, centroid, erro_x, erro_z
 
 
-
+def filmaker(imageVector,tempo, name="video.avi"):
+    # Cria um vídeo no formato .avi juntando todos os frames.
+    video_name = name
+    images = imageVector
+    height, width, layers = (128, 128, 3)
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    video = cv2.VideoWriter(video_name, fourcc, int(len(images)/tempo), (width, height))
+    for image in images:
+        video.write(image)
+    cv2.destroyAllWindows()
+    video.release()
 
 
 def getError(centroid):
-    imageDimensions = (128,128)
+    imageDimensions = (128, 128)
     distanceToCenter = None
     x_distance = None
     y_distance = None
     if len(centroid) > 0:
-        distanceToCenter = math.sqrt(((centroid[0]-imageDimensions[1]/2)**2)+((centroid[1]-imageDimensions[0]/2)**2))
-        x_distance = centroid[0]-(imageDimensions[1]/2)
-        y_distance = centroid[1]-(imageDimensions[0]/2)
-    return distanceToCenter,x_distance,y_distance
+        distanceToCenter = math.sqrt((
+            (centroid[0] - imageDimensions[1] / 2)**2) + (
+                (centroid[1] - imageDimensions[0] / 2)**2))
+        x_distance = centroid[0] - (imageDimensions[1] / 2)
+        y_distance = centroid[1] - (imageDimensions[0] / 2)
+    return distanceToCenter, x_distance, y_distance
 
 
-def moving_average(a, n) :
+def moving_average(a, n):
     ret = np.cumsum(a, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
 
+
 def getCentroid(x):
     p1, p2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
     width = int(x[2]) - int(x[0])
-    #print(width)
+    # print(width)
     height = int(x[3]) - int(x[1])
-    c1 = int(x[0]+width/2)
-    c2 = int(x[1]+height/2)
+    c1 = int(x[0] + width / 2)
+    c2 = int(x[1] + height / 2)
     return (c1, c2)
-def getDistanciaPontos(p1,p2):
+
+
+def getDistanciaPontos(p1, p2):
     distancia = math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
     return distancia
 
-def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
+
+def letterbox(img,
+              new_shape=(640, 640),
+              color=(114, 114, 114),
+              auto=True,
+              scaleFill=False,
+              scaleup=True,
+              stride=32):
     # Resize and pad image while meeting stride-multiple constraints
     shape = img.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
@@ -561,13 +652,15 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
     # Compute padding
     ratio = r, r  # width, height ratios
     new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
-    dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
+    dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - \
+        new_unpad[1]  # wh padding
     if auto:  # minimum rectangle
         dw, dh = np.mod(dw, stride), np.mod(dh, stride)  # wh padding
     elif scaleFill:  # stretch
         dw, dh = 0.0, 0.0
         new_unpad = (new_shape[1], new_shape[0])
-        ratio = new_shape[1] / shape[1], new_shape[0] / shape[0]  # width, height ratios
+        ratio = new_shape[1] / shape[1], new_shape[0] / \
+            shape[0]  # width, height ratios
 
     dw /= 2  # divide padding into 2 sides
     dh /= 2
@@ -576,8 +669,15 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
         img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
+    img = cv2.copyMakeBorder(img,
+                             top,
+                             bottom,
+                             left,
+                             right,
+                             cv2.BORDER_CONSTANT,
+                             value=color)  # add border
     return img, ratio, (dw, dh)
+
 
 if __name__ == "__main__":
     global wx
@@ -586,4 +686,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print('Interrupted')
     except:
-      wx.goSleep()
+        wx.goSleep()
