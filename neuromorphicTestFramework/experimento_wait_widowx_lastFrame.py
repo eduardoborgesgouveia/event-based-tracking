@@ -36,7 +36,7 @@ sys.path.append('general/')
 from threadhandler import ThreadHandler
 
 # 40 e 0,45
-frameTime = 35000
+frameTime = 30000
 HOST = ''
 PORT = 8000
 clock = pygame.time.Clock()
@@ -74,7 +74,7 @@ def main():
     last_pos_atual_x = pos_atual_x
     last_pos_atual_z = pos_atual_z
     last_pos_atual_y = pos_atual_y
-    step_wrist_angle = 8
+    step_wrist_angle = 4
     k_perc = 0.015
     k_x = wx.RANGE_MOVIMENTO_X * k_perc * 4
     k_y = wx.RANGE_MOVIMENTO_Y * k_perc
@@ -88,8 +88,8 @@ def main():
     # file/folder, 0 for webcam
     parser.add_argument('--source',type=str,default='data/images',help='source')
     parser.add_argument('--img-size',type=int, default=640,help='inference size (pixels)')
-    parser.add_argument('--conf-thres',type=float,default=0.25,help='object confidence threshold')
-    parser.add_argument('--iou-thres',type=float,default=0.45,help='IOU threshold for NMS')
+    # parser.add_argument('--conf-thres',type=float,default=0.25,help='object confidence threshold')
+    # parser.add_argument('--iou-thres',type=float,default=0.45,help='IOU threshold for NMS')
     parser.add_argument('--device',default='',help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img',action='store_true',help='display results')
     parser.add_argument('--save-txt',action='store_true',help='save results to *.txt')
@@ -102,9 +102,9 @@ def main():
     parser.add_argument('--exist-ok',action='store_true',help='existing project/name ok, do not increment')
     parser.add_argument('--path-to-save',type=str,default="data_experimentos", help='path to save the active tracking data')
     parser.add_argument('--name',type=str,default="experimento",help='name of the file to save information')
-    parser.add_argument('--model',type=str,default="models/SITS/best.pt",help='path to weights')
+    parser.add_argument('--model',type=str,default="models/SITS/last.pt",help='path to weights')
     parser.add_argument('--conf-thresh',type=float, default=0.30,help='confidence of the predictions')
-    parser.add_argument('--iou-thresh',type=float, default=0.5,help='confidence of the predictions')
+    parser.add_argument('--iou-thresh',type=float, default=0.3,help='confidence of the predictions')
     parser.add_argument('--speed', type=float, default=1, help='widowX speed')
     parser.add_argument('--num-objects',type=int,default=1,help='number of objects in scene')
     parser.add_argument('--id',type=str,default="sem_id",help='id for identification')
@@ -161,7 +161,7 @@ def main():
     flagDistanceFilter = True
     mediaMovelDistancia = [0, 0, 0]
     qtdeMediaMovel = 3
-    thresholdDistanceFilter = 0.2
+    thresholdDistanceFilter = 0.25
     maxDistanceImage = math.sqrt(128**2 + 128**2)
     thresholdDistanceFilter = thresholdDistanceFilter * maxDistanceImage
     lastCentroid = (0, 0)
@@ -214,253 +214,256 @@ def main():
             count = len(filaFrame)
 
             # for i in range(count):
-            if zf == count:
-                zf = 0
-                qtde_frames += 1
-                mutex.acquire()
-                frame = filaFrame[-1]
-                mutex.release()
-                # if i == count -1:
-                displayEvents.plotEventsF(frame[0], frame[1], frame[2])
-                img = displayEvents.frame
-                img_visualize = np.dstack([img, img, img])
-                img_visualize = img_visualize.astype(np.uint8).copy()
-                img_save = img_visualize.astype(np.uint8).copy()
-                frames_originais.append(img_save)
-                s = img.copy()
-                s[s == 0] = 255
-                s[s == 127.5] = 0
-                imgO = np.dstack([s, s, s])
-                imgO = imgO.astype(np.uint8).copy()
-                #img0 = fu.median(imgO,7)
-                # time when we finish processing for this frame
-                new_frame_time = time.time()
-                # fps will be number of frame processed in given time frame
-                # since their will be most of time error of 0.001 second
-                # we will be subtracting it to get more accurate result
-                fps = 1 / (new_frame_time - prev_frame_time)
-                prev_frame_time = new_frame_time
-                # converting the fps into integer
-                fps = int(fps)
+            #if zf == count:
+            zf = 0
+            qtde_frames += 1
+            mutex.acquire()
+            frame = filaFrame[-1]
+            filaFrame.clear()
+            mutex.release()
+            # if i == count -1:
+            displayEvents.plotEventsF(frame[0], frame[1], frame[2])
+            img = displayEvents.frame
+            img_visualize = np.dstack([img, img, img])
+            img_visualize = img_visualize.astype(np.uint8).copy()
+            img_save = img_visualize.astype(np.uint8).copy()
+            frames_originais.append(img_save)
+            s = img.copy()
+            s[s == 0] = 255
+            s[s == 127.5] = 0
+            imgO = np.dstack([s, s, s])
+            imgO = imgO.astype(np.uint8).copy()
+            #img0 = fu.median(imgO,7)
+            # time when we finish processing for this frame
+            new_frame_time = time.time()
+            # fps will be number of frame processed in given time frame
+            # since their will be most of time error of 0.001 second
+            # we will be subtracting it to get more accurate result
+            fps = 1 / (new_frame_time - prev_frame_time)
+            prev_frame_time = new_frame_time
+            # converting the fps into integer
+            fps = int(fps)
 
-                # converting the fps to string so that we can display it on frame
-                # by using putText function
-                fps = str(fps)
-                # Padded resize
-                img = letterbox(imgO, imgsz, stride=stride)[0]
+            # converting the fps to string so that we can display it on frame
+            # by using putText function
+            fps = str(fps)
+            # Padded resize
+            img = letterbox(imgO, imgsz, stride=stride)[0]
 
-                # Convert
-                # BGR to RGB, to 3x416x416
-                img = img[:, :, ::-1].transpose(2, 0, 1)
-                img = np.ascontiguousarray(img)
+            # Convert
+            # BGR to RGB, to 3x416x416
+            img = img[:, :, ::-1].transpose(2, 0, 1)
+            img = np.ascontiguousarray(img)
 
-                img = torch.from_numpy(img).to(device)
-                img = img.half() if half else img.float()  # uint8 to fp16/32
-                img /= 255.0  # 0 - 255 to 0.0 - 1.0
+            img = torch.from_numpy(img).to(device)
+            img = img.half() if half else img.float()  # uint8 to fp16/32
+            img /= 255.0  # 0 - 255 to 0.0 - 1.0
 
-                if img.ndimension() == 3:
-                    img = img.unsqueeze(0)
+            if img.ndimension() == 3:
+                img = img.unsqueeze(0)
 
-                # Inference
-                t1 = time_synchronized()
-                pred = model(img, augment=opt.augment)[0]
+            # Inference
+            t1 = time_synchronized()
+            pred = model(img, augment=opt.augment)[0]
 
-                # Apply NMS
-                pred = non_max_suppression(pred,
-                                           opt.conf_thresh,
-                                           opt.iou_thresh,
-                                           classes=opt.classes,
-                                           agnostic=opt.agnostic_nms)
-                #pred = non_max_suppression(pred, 0.25, 0.1, classes=opt.classes, agnostic=opt.agnostic_nms)
-                # qtde_predicoes_tensor.append(len(pred))
-                t2 = time_synchronized()
-                # Process detections
-                for i, det in enumerate(pred):  # detections per image
-                    s, im0, frame = '', img_visualize, 0
-                    s += '%gx%g ' % img.shape[2:]  # print string
-                    # normalization gain whwh
-                    gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]
-                    qtde_predicoes_tensor.append(len(det))
-                    if len(det):
-                        qtde_deteccoes += 1
+            # Apply NMS
+            pred = non_max_suppression(pred,
+                                        opt.conf_thresh,
+                                        opt.iou_thresh,
+                                        classes=opt.classes,
+                                        agnostic=opt.agnostic_nms)
+            #pred = non_max_suppression(pred, 0.25, 0.1, classes=opt.classes, agnostic=opt.agnostic_nms)
+            # qtde_predicoes_tensor.append(len(pred))
+            t2 = time_synchronized()
+            # Process detections
+            for i, det in enumerate(pred):  # detections per image
+                s, im0, frame = '', img_visualize, 0
+                s += '%gx%g ' % img.shape[2:]  # print string
+                # normalization gain whwh
+                gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]
+                qtde_predicoes_tensor.append(len(det))
+                if len(det):
+                    qtde_deteccoes += 1
 
-                        # Rescale boxes from img_size to im0 size
-                        det[:, :4] = scale_coords(img.shape[2:], det[:, :4],
-                                                  im0.shape).round()
+                    # Rescale boxes from img_size to im0 size
+                    det[:, :4] = scale_coords(img.shape[2:], det[:, :4],
+                                              im0.shape).round()
 
-                        # Print results
-                        for c in det[:, -1].unique():
-                            n = (det[:, -1] == c).sum()  # detections per class
-                            # add to string
-                            s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "
+                    # Print results
+                    for c in det[:, -1].unique():
+                        n = (det[:, -1] == c).sum()  # detections per class
+                        # add to string
+                        s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "
 
-                        index_min, dist_center, centroid, erro_x, erro_z = getCloserToCenter(det)
+                    index_min, dist_center, centroid, erro_x, erro_z = getCloserToCenter(det)
 
-                        # Write results
-                        *xyxy, conf, cls = reversed(det)[index_min]
-                        label = f'{names[int(cls)]} {conf:.2f}'
-                        predicao_classes.append(int(cls))
+                    # Write results
+                    *xyxy, conf, cls = reversed(det)[index_min]
+                    label = f'{names[int(cls)]} {conf:.2f}'
+                    predicao_classes.append(int(cls))
 
-                        if (flagDistanceFilter):
-                            if len(tipo_deteccao
-                                   ) > 0 and tipo_deteccao[-1] == "sacada":
-                                tsF = time.perf_counter()
-                                tempo_sacada.append(tsF - ts0)
-                            if (lastCentroid != (0, 0)):
-                                distancia = getDistanciaPontos(
-                                    centroid, lastCentroid)
-                                mediaMovelDistancia.append(distancia)
-                            distanciaMedia = moving_average(
-                                mediaMovelDistancia, len(mediaMovelDistancia))
-                            if (len(mediaMovelDistancia) > qtdeMediaMovel):
-                                mediaMovelDistancia = mediaMovelDistancia[1:-1]
-                            if (distancia < thresholdDistanceFilter):
-                                plot_one_box(xyxy,
-                                             im0,
-                                             label="",
-                                             color=colors[0],
-                                             line_thickness=3)
-                                cv2.circle(im0, centroid, 1, colors[0], 3)
-                                lastCentroid = centroid
-                                qtde_deteccoes_corretas += 1
-                                tipo_deteccao.append("valida")
-
-                                step_y = 3
-                                if erro_x is not None and erro_x < 0:
-                                    pos_atual_x += (abs(erro_x) / k_x)
-                                    if pos_atual_x >= wx.LIMITE_SUPERIOR_SEGURANCA_X:
-                                        pos_atual_x = wx.LIMITE_SUPERIOR_SEGURANCA_X
-                                elif erro_x is not None and erro_x > 0:
-                                    pos_atual_x -= (abs(erro_x) / k_x)
-                                    if pos_atual_x <= wx.LIMITE_INFERIOR_SEGURANCA_X:
-                                        pos_atual_x = wx.LIMITE_INFERIOR_SEGURANCA_X
-                                if erro_z is not None and erro_z < 0:
-                                    pos_atual_z += (abs(erro_z) / k_z)
-                                    if pos_atual_z >= wx.LIMITE_SUPERIOR_SEGURANCA_Z:
-                                        pos_atual_z = wx.LIMITE_SUPERIOR_SEGURANCA_Z
-                                elif erro_z is not None and erro_z > 0:
-                                    pos_atual_z -= (abs(erro_z) / k_z)
-                                    if pos_atual_z <= wx.LIMITE_INFERIOR_SEGURANCA_Z:
-                                        pos_atual_z = wx.LIMITE_INFERIOR_SEGURANCA_Z
-                                if pos_atual_y <= wx.LIMITE_INFERIOR_SEGURANCA_Y:
-                                    pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
-                                elif pos_atual_y >= wx.LIMITE_SUPERIOR_SEGURANCA_Y:
-                                    flagAlcance = False
-                                    tf_alcance = time.time()
-                                    pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
-
-                                if wx.isConnected:
-                                    # while (time.perf_counter() - tw0 <(1 / wx.FREQ_MAX)):
-                                    #     pass
-                                    if (time.perf_counter() - tw0 >(1 / wx.FREQ_MAX)):
-                                        pos_atual_y += step_y
-                                        wx.sendValue(int(pos_atual_x),
-                                                     int(pos_atual_y),
-                                                     int(pos_atual_z),
-                                                     delta=None)
-                                        tw0 = time.perf_counter()
-
-                            else:
-                                tipo_deteccao.append("invalida")
-                                cv2.circle(im0, lastCentroid, 1, colors[0], 3)
-                                # step_y = 3
-
-                                # if wx.isConnected:
-                                #     while (time.perf_counter() - tw0 <(1 / wx.FREQ_MAX)):
-                                #         pass
-                                #     if (time.perf_counter() - tw0 >(1 / wx.FREQ_MAX)):
-                                #         pos_atual_y += step_y
-                                #         wx.sendValue(int(pos_atual_x),
-                                #                      int(pos_atual_y),
-                                #                      int(pos_atual_z),
-                                #                      delta=None)
-                                #         tw0 = time.perf_counter()
-
-                        else:
-                            #else do filtro de filtragem por distância
+                    if (flagDistanceFilter):
+                        if len(tipo_deteccao) > 0 and tipo_deteccao[-1] == "sacada":
+                            tsF = time.perf_counter()
+                            tempo_sacada.append(tsF - ts0)
+                        if (lastCentroid != (0, 0)):
+                            distancia = getDistanciaPontos(centroid, lastCentroid)
+                            mediaMovelDistancia.append(distancia)
+                        distanciaMedia = moving_average(mediaMovelDistancia, len(mediaMovelDistancia))
+                        if (len(mediaMovelDistancia) > qtdeMediaMovel):
+                            mediaMovelDistancia = mediaMovelDistancia[1:-1]
+                        if (distancia < thresholdDistanceFilter):
                             plot_one_box(xyxy,
-                                         im0,
-                                         label="",
-                                         color=colors[0],
-                                         line_thickness=3)
+                                          im0,
+                                          label="",
+                                          color=colors[0],
+                                          line_thickness=3)
                             cv2.circle(im0, centroid, 1, colors[0], 3)
+                            lastCentroid = centroid
+                            qtde_deteccoes_corretas += 1
+                            tipo_deteccao.append("valida")
+
+                            step_y = 2
+                            if erro_x is not None and erro_x < 0:
+                                pos_atual_x += (abs(erro_x) / k_x)
+                                if pos_atual_x >= wx.LIMITE_SUPERIOR_SEGURANCA_X:
+                                    pos_atual_x = wx.LIMITE_SUPERIOR_SEGURANCA_X
+                            elif erro_x is not None and erro_x > 0:
+                                pos_atual_x -= (abs(erro_x) / k_x)
+                                if pos_atual_x <= wx.LIMITE_INFERIOR_SEGURANCA_X:
+                                    pos_atual_x = wx.LIMITE_INFERIOR_SEGURANCA_X
+                            if erro_z is not None and erro_z < 0:
+                                pos_atual_z += (abs(erro_z) / k_z)
+                                if pos_atual_z >= wx.LIMITE_SUPERIOR_SEGURANCA_Z:
+                                    pos_atual_z = wx.LIMITE_SUPERIOR_SEGURANCA_Z
+                            elif erro_z is not None and erro_z > 0:
+                                pos_atual_z -= (abs(erro_z) / k_z)
+                                if pos_atual_z <= wx.LIMITE_INFERIOR_SEGURANCA_Z:
+                                    pos_atual_z = wx.LIMITE_INFERIOR_SEGURANCA_Z
+                            if pos_atual_y <= wx.LIMITE_INFERIOR_SEGURANCA_Y:
+                                pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
+                            elif pos_atual_y >= wx.LIMITE_SUPERIOR_SEGURANCA_Y:
+                                flagAlcance = False
+                                tf_alcance = time.time()
+                                pos_atual_y = wx.LIMITE_INFERIOR_SEGURANCA_Y
+
                             if wx.isConnected:
-                                # while (time.perf_counter() - tw0 <(1 / wx.FREQ_MAX)):
-                                #     pass
-                                if (time.perf_counter() - tw0 > (1 / wx.FREQ_MAX)):
+                                while (time.perf_counter() - tw0 <(1 / wx.FREQ_MAX)):
+                                    pass
+                                if (time.perf_counter() - tw0 >(1 / wx.FREQ_MAX)):
                                     pos_atual_y += step_y
                                     wx.sendValue(int(pos_atual_x),
-                                                 int(pos_atual_y),
-                                                 int(pos_atual_z),
-                                                 delta=None)
+                                                int(pos_atual_y),
+                                                int(pos_atual_z),
+                                                wrist=int(pos_atual_wrist_angle))
                                     tw0 = time.perf_counter()
 
-                        if qtde_deteccoes % 5 == 0:
+                        else:
+                            tipo_deteccao.append("invalida")
+                            cv2.circle(im0, lastCentroid, 1, colors[0], 3)
+                            # step_y = 3
 
-                            if len(qtde_deteccoes_acc_temp_validas) == 0:
-                                last_value_val = 0
-                            else:
-                                last_value_val = qtde_deteccoes_acc_temp_validas[-1]
-
-                            if len(qtde_deteccoes_acc_temp_totais) == 0:
-                                last_value_tot = 0
-                            else:
-                                last_value_tot = qtde_deteccoes_acc_temp_totais[-1]
-
-                            qtde_deteccoes_acc_temp_totais.append(
-                                qtde_deteccoes)
-                            qtde_deteccoes_acc_temp_validas.append(
-                                qtde_deteccoes_corretas)
-
-                            taxa_acc_temp.append(
-                                (qtde_deteccoes_corretas - last_value_val) /
-                                (qtde_deteccoes - last_value_tot))
+                            # if wx.isConnected:
+                            #     while (time.perf_counter() - tw0 <(1 / wx.FREQ_MAX)):
+                            #         pass
+                            #     if (time.perf_counter() - tw0 >(1 / wx.FREQ_MAX)):
+                            #         pos_atual_y += step_y
+                            #         wx.sendValue(int(pos_atual_x),
+                            #                      int(pos_atual_y),
+                            #                      int(pos_atual_z),
+                            #                      delta=None)
+                            #         tw0 = time.perf_counter()
 
                     else:
-                        # qtde_nao_deteccao += 1
-                        # if qtde_nao_deteccao > 5:
-                        #   qtde_nao_deteccao = 0
-                        # responsavel por realizar o movimento de geração de eventos
-                        # while (time.perf_counter() - tw0 < (1 / wx.FREQ_MAX)):
-                        #     pass
-                        if (time.perf_counter() - tw0 > (1 / wx.FREQ_MAX)):
-                            if len(tipo_deteccao) == 0 or tipo_deteccao[-1] != "sacada":
-                                ts0 = time.perf_counter()
+                        #else do filtro de filtragem por distância
+                        plot_one_box(xyxy,
+                                      im0,
+                                      label="",
+                                      color=colors[0],
+                                      line_thickness=3)
+                        cv2.circle(im0, centroid, 1, colors[0], 3)
+                        if wx.isConnected:
+                            while (time.perf_counter() - tw0 <(1 / wx.FREQ_MAX)):
+                                pass
+                            if (time.perf_counter() - tw0 > (1 / wx.FREQ_MAX)):
+                                pos_atual_y += step_y
+                                wx.sendValue(int(pos_atual_x),
+                                            int(pos_atual_y),
+                                            int(pos_atual_z),
+                                            wrist=int(pos_atual_wrist_angle))
+                                tw0 = time.perf_counter()
 
-                            tipo_deteccao.append("sacada")
-                            pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
-                            if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
-                                pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
-                                step_wrist_angle = -step_wrist_angle
-                            elif pos_atual_wrist_angle >= wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE:
-                                pos_atual_wrist_angle = wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE
-                                step_wrist_angle = -step_wrist_angle
-                            # if pos_atual_y == wx.LIMITE_INFERIOR_SEGURANCA_Y:
-                            #     dt = wx.DELTA
-                            # else:
-                            #     dt = 40
-                            # wx.sendValue(int(pos_atual_x),
-                            #              int(pos_atual_y),
-                            #              int(pos_atual_z),
-                            #              wrist=int(pos_atual_wrist_angle),
-                            #              delta=dt)
-                            wx.sendValue(int(pos_atual_x),
-                                         int(pos_atual_y),
-                                         int(pos_atual_z),
-                                         wrist=int(pos_atual_wrist_angle))
-                            tw0 = time.perf_counter()
-                            # if len(tipo_deteccao) > 2 and tipo_deteccao[-1] != "sacada" and tipo_deteccao[-2] :
+                    if qtde_deteccoes % 5 == 0:
 
-                    #print(f'{s}Done. ({t2 - t1:.3f}s) - {fps} FPS')
+                        if len(qtde_deteccoes_acc_temp_validas) == 0:
+                            last_value_val = 0
+                        else:
+                            last_value_val = qtde_deteccoes_acc_temp_validas[-1]
 
-                cv2.namedWindow('N-yolo', cv2.WINDOW_NORMAL)
-                cv2.resizeWindow('N-yolo', 400, 400)
-                cv2.imshow('N-yolo', im0)
-                frames_com_deteccao.append(im0)
+                        if len(qtde_deteccoes_acc_temp_totais) == 0:
+                            last_value_tot = 0
+                        else:
+                            last_value_tot = qtde_deteccoes_acc_temp_totais[-1]
 
-                cv2.waitKey(1)  # 1 millisecond
-            else:
-                zf += 1
+                        qtde_deteccoes_acc_temp_totais.append(
+                            qtde_deteccoes)
+                        qtde_deteccoes_acc_temp_validas.append(
+                            qtde_deteccoes_corretas)
+
+                        taxa_acc_temp.append(
+                            (qtde_deteccoes_corretas - last_value_val) /
+                            (qtde_deteccoes - last_value_tot))
+
+                else:
+                    # qtde_nao_deteccao += 1
+                    # if qtde_nao_deteccao > 5:
+                    #   qtde_nao_deteccao = 0
+                    # responsavel por realizar o movimento de geração de eventos
+                    # while (time.perf_counter() - tw0 < (1 / wx.FREQ_MAX)):
+                    #     pass
+                    if len(tipo_deteccao) == 0 or tipo_deteccao[-1] != "sacada":
+                            ts0 = time.perf_counter()
+
+                    tipo_deteccao.append("sacada")
+                    if (time.perf_counter() - tw0 > (1 / wx.FREQ_MAX)):
+                        
+                        pos_atual_wrist_angle = pos_atual_wrist_angle + step_wrist_angle
+                        # if pos_atual_wrist_angle <= wx.POSICAO_INICIAL_WRIST_ANGLE - 10:
+                        #     step_wrist_angle = -step_wrist_angle
+                        # elif pos_atual_wrist_angle >= wx.POSICAO_INICIAL_WRIST_ANGLE + 10:
+                        #     step_wrist_angle = -step_wrist_angle
+                        if pos_atual_wrist_angle <= wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE:
+                            #pos_atual_wrist_angle = wx.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE
+                            step_wrist_angle = -step_wrist_angle
+                        elif pos_atual_wrist_angle >= wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE:
+                            #pos_atual_wrist_angle = wx.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE
+                            step_wrist_angle = -step_wrist_angle
+                        # if pos_atual_y == wx.LIMITE_INFERIOR_SEGURANCA_Y:
+                        #     dt = wx.DELTA
+                        # else:
+                        #     dt = 40
+                        # wx.sendValue(int(pos_atual_x),
+                        #              int(pos_atual_y),
+                        #              int(pos_atual_z),
+                        #              wrist=int(pos_atual_wrist_angle),
+                        #              delta=dt)
+                        wx.sendValue(int(pos_atual_x),
+                                      int(pos_atual_y),
+                                      int(pos_atual_z),
+                                      wrist=int(pos_atual_wrist_angle))
+                        tw0 = time.perf_counter()
+                        # if len(tipo_deteccao) > 2 and tipo_deteccao[-1] != "sacada" and tipo_deteccao[-2] :
+
+                #print(f'{s}Done. ({t2 - t1:.3f}s) - {fps} FPS')
+
+            cv2.namedWindow('N-yolo', cv2.WINDOW_NORMAL)
+            cv2.resizeWindow('N-yolo', 400, 400)
+            cv2.imshow('N-yolo', im0)
+            frames_com_deteccao.append(im0)
+
+            cv2.waitKey(1)  # 1 millisecond
+            #else:
+                #zf += 1
 
     tempo_alcance = tf_alcance - ti_alcance
     taxa_erro_percentual_frames = qtde_deteccoes / qtde_frames

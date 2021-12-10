@@ -32,11 +32,11 @@ class widow_x():
         # self.POSICAO_INICIAL_Z = 202
         # self.POSICAO_INICIAL_WRIST_ANGLE = 90
         #valores em start position 1
-        self.START_POSITION_CMD = [0xFF, 0x05, 0x0E, 0x00, 0x8C, 0x00, 0xB6, 0x00, 0x3C, 0x02, 0x00, 0x01, 0x00, 0x7D, 0x00, 0x00, 0xEE]
+        self.START_POSITION_CMD = [0xFF, 0x05, 0x0E, 0x00, 0x8C, 0x00, 0xA9, 0x00, 0x55, 0x02, 0x00, 0x01, 0x00, 0x7D, 0x00, 0x00, 0xE2]
         self.POSICAO_INICIAL_X = 1294
         self.POSICAO_INICIAL_Y = 140
-        self.POSICAO_INICIAL_Z = 182
-        self.POSICAO_INICIAL_WRIST_ANGLE = 60
+        self.POSICAO_INICIAL_Z = 169
+        self.POSICAO_INICIAL_WRIST_ANGLE = 85
         #LIMITES MÁXIMOS
         self.LIMITE_SUPERIOR_X = 0
         self.LIMITE_INFERIOR_X = 4059
@@ -66,10 +66,10 @@ class widow_x():
         #self.LIMITE_SUPERIOR_SEGURANCA_Z = 300
         #self.LIMITE_INFERIOR_SEGURANCA_Z = 250
 
-        # self.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE = 95
-        # self.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE = 85
         self.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE = 95
-        self.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE = 58
+        self.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE = 85
+        # self.LIMITE_SUPERIOR_SEGURANCA_WRIST_ANGLE = 95
+        # self.LIMITE_INFERIOR_SEGURANCA_WRIST_ANGLE = 58
         self.RANGE_MOVIMENTO_X = self.LIMITE_SUPERIOR_SEGURANCA_X - self.LIMITE_INFERIOR_SEGURANCA_X
         self.RANGE_MOVIMENTO_Y = self.LIMITE_SUPERIOR_SEGURANCA_Y - self.LIMITE_INFERIOR_SEGURANCA_Y
         self.RANGE_MOVIMENTO_Z = self.LIMITE_SUPERIOR_SEGURANCA_Z - self.LIMITE_INFERIOR_SEGURANCA_Z
@@ -78,7 +78,7 @@ class widow_x():
         self.EXTENDED_BYTE = 0x00 #move arm to position
         self.BUTTON_BYTE = 0x00 #do nothing
         #self.TIME = 2000 #time in miliseconds
-        self.DELTA = 5 #delta value from the package. Range: 0 - 255
+        self.DELTA = 100 #delta value from the package. Range: 0 - 255
         self.FREQ_MAX = 30
 
         #VARIAVEIS DE STATUS
@@ -87,7 +87,7 @@ class widow_x():
     def connect(self):
         flagConnected = False
         comunicacaoSerial = sr.Serial('/dev/ttyUSB0',
-                                        38400,
+                                        115200,
                                         stopbits = sr.STOPBITS_ONE,
                                         bytesize = sr.EIGHTBITS,
                                         parity = sr.PARITY_NONE,)
