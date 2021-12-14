@@ -76,7 +76,7 @@ def main():
     last_pos_atual_y = pos_atual_y
     step_wrist_angle = 4
     k_perc = 0.015
-    k_x = wx.RANGE_MOVIMENTO_X * k_perc * 4
+    k_x = wx.RANGE_MOVIMENTO_X * k_perc * 0.5
     k_y = wx.RANGE_MOVIMENTO_Y * k_perc
     k_z = wx.RANGE_MOVIMENTO_Z * k_perc * 8
     #k_z = 250
