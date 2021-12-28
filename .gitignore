@@ -19,6 +19,7 @@
 *.avi
 *.data
 *.json
+*.webm
 
 *.cfg
 !cfg/yolov3*.cfg
@@ -260,4 +261,4 @@ neuromorphicTestFramework/videos/*
 !results_models/yolov5s_TORE_results/*
 neuromorphicTestFramework/analise_resultados_re_refeitos/experimento_4/*.webm
 neuromorphicTestFramework/analise_resultados_refeitos/experimento_4_2/2021-12-28-151241.webm
-
+!neuromorphicTestFramework/analise_resultados_re_refeitos/*.png
