@@ -10,11 +10,11 @@ import pandas as pd
 import math
 from matplotlib.pyplot import figure
 
-
+from scipy.stats import pearsonr
 
 
 def main():
-    path_init = "analise_resultados/"
+    path_init = "analise_resultados_re_refeitos/"
     folderNames = ['experimento_1','experimento_2','experimento_3','experimento_4','experimento_5']
     resultExperimentos = []
     ensaios =[]
@@ -35,7 +35,7 @@ def main():
       media_percentagem_sacada_tempo = []
       media_tempo_sacada_raw =[]
       deteccoes_validas = []
-      deteccoes_sacadas = [] 
+      deteccoes_sacadas = []
       deteccoes_invalidas = []
       media_taxa_deteccoes_acc_temp_frames_totais = []
       media_tempo_total = []
@@ -70,11 +70,14 @@ def main():
           vetor_frames = []
           _qtde_frames = 0
           for i in range(len(ensaio["qtde_deteccoes_acc_temp_validas"])):
-            while ensaio["qtde_deteccoes_acc_temp_validas"][i] >= _qtde_frames:
+            while ensaio["qtde_deteccoes_acc_temp_validas"][i] > _qtde_frames:
               vetor_frames.append(ensaio["qtde_predicoes_tensor"][j])
-              _qtde_frames += ensaio["qtde_predicoes_tensor"][j]
+              if ensaio["qtde_predicoes_tensor"][j] <=1:
+                _qtde_frames += ensaio["qtde_predicoes_tensor"][j]
+              else:
+                _qtde_frames += 1
               j += 1
-            
+
             qtde_frames_cinco_deteccoes.append(ensaio["qtde_deteccoes_acc_temp_validas"][i]/len(vetor_frames))
             # vetor_frames = []
             j == 0
@@ -113,7 +116,7 @@ def main():
       }
       resultExperimentos.append(comp_results)
     # print(resultExperimentos)
-    
+
     acuracia_geral_tracking = []
     acuracia_geral_tracking_modo_2 = []
     tempo_medio_sacada = []
@@ -139,7 +142,7 @@ def main():
       acuracia_geral_tracking_modo_2.append(exp["media_taxa_acerto_percentual_deteccao"])
       tempo_medio_sacada_porcentagem.append(exp["percentagem_sacada_tempo"])
       tempo_medio_sacada.append(exp["media_percentagem_sacada_tempo"]*exp["media_tempo_total"])
-      tempo_total.append(exp["media_tempo_total"])
+      tempo_total.append(exp["tempo_total"])
       media_sacada_porcentagem_frame.append(exp["media_percentagem_sacada_frame"])
       media_tracking_tempo_deteccao.append(exp["media_taxa_deteccoes_acc_temp"])
       std_tracking_tempo_deteccao.append(exp["desvio_padrao_taxa_deteccoes_acc_temp"])
@@ -177,7 +180,7 @@ def main():
       plt.xticks([1, 2, 3,4,5], eixo_x_boxPlot)
       # plt.xlabel("Experimentos")
       plt.ylabel("Acurácia [%]")
-      plt.savefig('analise_resultados/acuracia_geral_modo_1.png')
+      plt.savefig(path_init+'/acuracia_geral_modo_1.png')
       plt.show()
 
       fig1, ax1 = plt.subplots()
@@ -199,7 +202,7 @@ def main():
       plt.xticks([1, 2, 3, 4, 5], eixo_x_boxPlot)
       # plt.xlabel("Experimentos")
       plt.ylabel("Acurácia [%]")
-      plt.savefig('analise_resultados/acuracia_geral_modo_2.png')
+      plt.savefig(path_init+'/acuracia_geral_modo_2.png')
       plt.show()
 
       fig1, ax1 = plt.subplots()
@@ -216,7 +219,24 @@ def main():
       plt.xticks([1, 2, 3, 4, 5], eixo_x_boxPlot)
       # plt.xlabel("Experimentos")
       plt.ylabel("Tempo [s]")
-      plt.savefig('analise_resultados/tempo_medio_movimento_sacadico.png')
+      plt.savefig(path_init+'/tempo_medio_movimento_sacadico.png')
+      plt.show()
+
+      fig1, ax1 = plt.subplots()
+      bp = ax1.boxplot(tempo_total,patch_artist=True,medianprops=dict(color="black"))
+      i = 0
+      for patch in bp['boxes']:
+        patch.set_facecolor(cores[i])
+        i += 1
+      ax1.grid(color='grey', axis='y', linestyle='-', linewidth=0.25, alpha=0.5)
+      ax1.spines['top'].set_visible(False)
+      ax1.spines['right'].set_visible(False)
+      ax1.spines['left'].set_visible(False)
+      ax1.set_title('Tempo médio de duração do alcance')
+      plt.xticks([1, 2, 3,4,5], eixo_x_boxPlot)
+      # plt.xlabel("Experimentos")
+      plt.ylabel("Tempo médio [s]")
+      plt.savefig(path_init+'/tempo_medio_experimentos.png')
       plt.show()
 
       fig1, ax1 = plt.subplots()
@@ -230,7 +250,7 @@ def main():
         for patch in bp['boxes']:
           patch.set_facecolor(cores[i-1])
           i += 1
-      
+
       ax1.grid(color='grey', axis='y', linestyle='-', linewidth=0.25, alpha=0.5)
       ax1.spines['top'].set_visible(False)
       ax1.spines['right'].set_visible(False)
@@ -239,7 +259,7 @@ def main():
       plt.xticks([1, 2, 3, 4, 5], eixo_x_boxPlot)
       # plt.xlabel("Experimentos")
       plt.ylabel("Tempo [s]")
-      plt.savefig('analise_resultados/media_tempo_movimento_sacadico.png')
+      plt.savefig(path_init+'/media_tempo_movimento_sacadico.png')
       plt.show()
 
       fig1, ax1 = plt.subplots()
@@ -253,7 +273,7 @@ def main():
         for patch in bp['boxes']:
           patch.set_facecolor(cores[i-1])
           i += 1
-      
+
       ax1.grid(color='grey', axis='y', linestyle='-', linewidth=0.25, alpha=0.5)
       ax1.spines['top'].set_visible(False)
       ax1.spines['right'].set_visible(False)
@@ -262,7 +282,7 @@ def main():
       plt.xticks([1, 2, 3, 4, 5], eixo_x_boxPlot)
       # plt.xlabel("Experimentos")
       plt.ylabel("Quantidade [un]")
-      plt.savefig('analise_resultados/quantidade_media_movimento_sacadico.png')
+      plt.savefig(path_init+'/quantidade_media_movimento_sacadico.png')
       plt.show()
 
       fig1, ax1 = plt.subplots()
@@ -279,12 +299,12 @@ def main():
       plt.xticks([1, 2, 3, 4, 5], eixo_x_boxPlot)
       # plt.xlabel("Experimentos")
       plt.ylabel("Quantidade [un]")
-      plt.savefig('analise_resultados/quantidade_deteccoes_validas_consecutivas.png')
+      plt.savefig(path_init+'/quantidade_deteccoes_validas_consecutivas.png')
       plt.show()
 
 
       plt.rcParams["figure.figsize"] = (12,8)
-      experimentos = [] 
+      experimentos = []
       for i in range(len(media_deteccao_invalida)):
         max_value = max(media_deteccao_invalida[i],media_deteccao_sacada[i],media_deteccao_valida[i])
         media_deteccao_invalida[i] =( media_deteccao_invalida[i]/max_value )* 100
@@ -309,10 +329,10 @@ def main():
         plt.ylim(0,105)
         ax.set_rlabel_position(25.5)
         ax.set_title("Experimento - " + str(j), va='bottom')
-        
-      plt.savefig('analise_resultados/distribuicao_tipos_deteccao.png')
+
+      plt.savefig(path_init+'/distribuicao_tipos_deteccao.png')
       plt.show()
-      
+
 
       plt.rcParams["figure.figsize"] = (9,5)
     # plotar uma série temporal dos valores de tempo de cada sacada ao longo do movimento de alcance ##
@@ -334,17 +354,17 @@ def main():
       tempo_media = np.linspace(0,tempo_media,tempo_media)
       plt.plot(tempo_media*dt,media_das_media*100,label="média de acurácia",color="grey")
       plt.fill_between(tempo_media*dt,(media_das_media*100-std__media_das_media*100),(media_das_media*100+std__media_das_media*100),color="grey",alpha=0.09)
-      ax1.set_title('Rastreio ativo - acurácia rastreio ao longo do tempo - modo 1')
+      ax1.set_title('Rastreio ativo - acurácia rastreio ao longo do tempo - modo 2')
       ax1.spines['top'].set_visible(False)
       ax1.spines['right'].set_visible(False)
       ax1.spines['left'].set_visible(False)
       plt.xlabel("Tempo [s]")
       plt.ylabel("Acurácia [%]")
       plt.legend()
-      plt.savefig('analise_resultados/acc_rastreio_ao_longo_do_tempo_modo_1.png')
+      plt.savefig(path_init+'/acc_rastreio_ao_longo_do_tempo_modo_2.png')
       plt.show()
-      
-      
+
+
       plt.rcParams["figure.figsize"] = (12,10)
       media_das_media = tolerant_mean(media_tracking_tempo_deteccao_total_frames)
       std__media_das_media = tolerant_std(media_tracking_tempo_deteccao_total_frames)
@@ -364,14 +384,14 @@ def main():
       tempo_media = np.linspace(0,tempo_media,tempo_media)
       plt.plot(tempo_media*dt,media_das_media*100,label="média de acurácia",color="grey")
       plt.fill_between(tempo_media*dt,(media_das_media*100-std__media_das_media*100),(media_das_media*100+std__media_das_media*100),color="grey",alpha=0.09)
-      ax1.set_title('Rastreio ativo - acurácia rastreio ao longo do tempo - modo 2')
+      ax1.set_title('Rastreio ativo - acurácia rastreio ao longo do tempo - modo 1')
       ax1.spines['top'].set_visible(False)
       ax1.spines['right'].set_visible(False)
       ax1.spines['left'].set_visible(False)
       plt.xlabel("Tempo [s]")
       plt.ylabel("Acurácia [%]")
       plt.legend(loc=1)
-      plt.savefig('analise_resultados/acc_rastreio_ao_longo_do_tempo_modo_2.png')
+      plt.savefig(path_init+'/acc_rastreio_ao_longo_do_tempo_modo_1.png')
       plt.show()
 
 
@@ -397,14 +417,14 @@ def main():
       plt.xlabel("Movimento")
       plt.ylabel("Tempo [ms]")
       plt.legend()
-      plt.savefig('analise_resultados/tempo_gasto_movimento_sacadico.png')
+      plt.savefig(path_init+'/tempo_gasto_movimento_sacadico.png')
       plt.show()
 
     ########################################################################################################################################
     ##Gráfico comparando o experimento 3 e o 5 ###
     ########################################################################################################################################
 
-    
+
     cores = ["darkseagreen","coral" ]
 
     plt.rcParams["figure.figsize"] = (8,4)
@@ -430,7 +450,7 @@ def main():
       plt.xticks([1,2],[eixo_x_boxPlot[2],eixo_x_boxPlot[4]])
       # plt.xlabel("Experimentos")
       plt.ylabel("Acurácia [%]")
-      plt.savefig('analise_resultados/exp_3_5_acuracia_geral_modo_1.png')
+      plt.savefig(path_init+'/exp_3_5_acuracia_geral_modo_1.png')
       plt.show()
 
       fig1, ax1 = plt.subplots()
@@ -454,7 +474,7 @@ def main():
       ax1.set_title('Acurácia geral do modelo de rastreio ativo - modo 2')
       plt.xticks([1,2],[eixo_x_boxPlot[2],eixo_x_boxPlot[4]])
       plt.ylabel("Acurácia [%]")
-      plt.savefig('analise_resultados/exp_3_5_acuracia_geral_modo_2.png')
+      plt.savefig(path_init+'/exp_3_5_acuracia_geral_modo_2.png')
       plt.show()
 
       fig1, ax1 = plt.subplots()
@@ -474,7 +494,7 @@ def main():
       ax1.set_title('Tempo médio do movimento sacádico')
       plt.xticks([1,2],[eixo_x_boxPlot[2],eixo_x_boxPlot[4]])
       plt.ylabel("Tempo [s]")
-      plt.savefig('analise_resultados/exp_3_5_tempo_medio_movimento_sacadico.png')
+      plt.savefig(path_init+'/exp_3_5_tempo_medio_movimento_sacadico.png')
       plt.show()
 
       fig1, ax1 = plt.subplots()
@@ -489,7 +509,7 @@ def main():
             patch.set_facecolor(cores[i-1])
             i += 1
         j +=1
-      
+
       ax1.grid(color='grey', axis='y', linestyle='-', linewidth=0.25, alpha=0.5)
       ax1.spines['top'].set_visible(False)
       ax1.spines['right'].set_visible(False)
@@ -497,7 +517,7 @@ def main():
       ax1.set_title('Média de tempo de movimentos sacádicos')
       plt.xticks([1,2],[eixo_x_boxPlot[2],eixo_x_boxPlot[4]])
       plt.ylabel("Tempo [s]")
-      plt.savefig('analise_resultados/exp_3_5_media_tempo_movimento_sacadico.png')
+      plt.savefig(path_init+'/exp_3_5_media_tempo_movimento_sacadico.png')
       plt.show()
 
 
@@ -526,7 +546,7 @@ def main():
         plt.xticks([1,2],[eixo_x_boxPlot[2],eixo_x_boxPlot[4]])
         # plt.xlabel("Experimentos")
         plt.ylabel("Quantidade [un]")
-        plt.savefig('analise_resultados/exp_3_5_quantidade_media_movimento_sacadico.png')
+        plt.savefig(path_init+'/exp_3_5_quantidade_media_movimento_sacadico.png')
         plt.show()
 
         fig1, ax1 = plt.subplots()
@@ -547,9 +567,9 @@ def main():
         plt.xticks([1,2],[eixo_x_boxPlot[2],eixo_x_boxPlot[4]])
         # plt.xlabel("Experimentos")
         plt.ylabel("Quantidade [un]")
-        plt.savefig('analise_resultados/exp_3_5_quantidade_deteccoes_validas_consecutivas.png')
+        plt.savefig(path_init+'/exp_3_5_quantidade_deteccoes_validas_consecutivas.png')
         plt.show()
-        
+
 
         plt.rcParams["figure.figsize"] = (9,5)
       # plotar uma série temporal dos valores de tempo de cada sacada ao longo do movimento de alcance ##
@@ -574,17 +594,17 @@ def main():
         # tempo_media = np.linspace(0,tempo_media,tempo_media)
         # plt.plot(tempo_media*dt,media_das_media*100,label="média de acurácia",color="grey")
         # plt.fill_between(tempo_media*dt,(media_das_media*100-std__media_das_media*100),(media_das_media*100+std__media_das_media*100),color="grey",alpha=0.09)
-        ax1.set_title('Rastreio ativo - acurácia rastreio ao longo do tempo - modo 1')
+        ax1.set_title('Rastreio ativo - acurácia rastreio ao longo do tempo - modo 2 - deteccao')
         ax1.spines['top'].set_visible(False)
         ax1.spines['right'].set_visible(False)
         ax1.spines['left'].set_visible(False)
         plt.xlabel("Tempo [s]")
         plt.ylabel("Acurácia [%]")
         plt.legend()
-        plt.savefig('analise_resultados/exp_3_5_acc_rastreio_ao_longo_do_tempo_modo_1.png')
+        plt.savefig(path_init+'/exp_3_5_acc_rastreio_ao_longo_do_tempo_modo_2.png')
         plt.show()
-        
-        
+
+
         plt.rcParams["figure.figsize"] = (12,10)
         media_das_media = tolerant_mean(media_tracking_tempo_deteccao_total_frames)
         std__media_das_media = tolerant_std(media_tracking_tempo_deteccao_total_frames)
@@ -607,54 +627,70 @@ def main():
         # tempo_media = np.linspace(0,tempo_media,tempo_media)
         # plt.plot(tempo_media*dt,media_das_media*100,label="média de acurácia",color="grey")
         # plt.fill_between(tempo_media*dt,(media_das_media*100-std__media_das_media*100),(media_das_media*100+std__media_das_media*100),color="grey",alpha=0.09)
-        ax1.set_title('Rastreio ativo - acurácia rastreio ao longo do tempo - modo 2')
+        ax1.set_title('Rastreio ativo - acurácia rastreio ao longo do tempo - modo 1 - total frames')
         ax1.spines['top'].set_visible(False)
         ax1.spines['right'].set_visible(False)
         ax1.spines['left'].set_visible(False)
         plt.xlabel("Tempo [s]")
         plt.ylabel("Acurácia [%]")
         plt.legend(loc=1)
-        plt.savefig('analise_resultados/exp_3_5_acc_rastreio_ao_longo_do_tempo_modo_2.png')
+        plt.savefig(path_init+'/exp_3_5_acc_rastreio_ao_longo_do_tempo_modo_1.png')
         plt.show()
 
-        ## TODO - descomentar e fazer esse aqui
-
-
-        # plt.rcParams["figure.figsize"] = (20,6)
-        # media_das_media_tempo_sacada_raw = tolerant_mean(tempo_sacada_raw)
-        # std__media_tempo_sacada_raw = tolerant_std(tempo_sacada_raw)
-        # fig1, ax1 = plt.subplots()
-        # maior = 0
-        # for ser in tempo_sacada_raw:
-        #   tamanho = len(ser)
-        #   if tamanho > maior:
-        #     maior = tamanho
-        # tempo = np.linspace(0,maior,maior)
-        # i = 0
-        # for ser in tempo_sacada_raw:
-        #   plt.scatter(tempo[:len(ser)],ser*1000,s=std_tempo_sacada_raw[i]*1000,label=eixo_x_boxPlot[i],color=cores[i])
-        #   i+=1
-        # tempo_media = len(media_das_media_tempo_sacada_raw)
-        # tempo_media = np.linspace(0,tempo_media,tempo_media)
-        # plt.plot(tempo_media,media_das_media_tempo_sacada_raw*1000,label="média do tempo da sacada",color="grey")
-        # plt.fill_between(tempo_media,(media_das_media_tempo_sacada_raw-std__media_tempo_sacada_raw)*1000,(media_das_media_tempo_sacada_raw+std__media_tempo_sacada_raw)*1000,color="grey",alpha=0.15)
-        # ax1.set_title('Tempo gasto com movimentos sacadicos ao longo do alcance')
-        # plt.xlabel("Movimento")
-        # plt.ylabel("Tempo [ms]")
-        # plt.legend()
-        # plt.savefig('analise_resultados/exp_3_5_tempo_gasto_movimento_sacadico.png')
-        # plt.show()
-
-
-  
-      
 
 
 
+      plt.rcParams["figure.figsize"] = (20,6)
+      fig1, ax1 = plt.subplots()
+      maior = 0
+      for ser in tempo_sacada_raw:
+        tamanho = len(ser)
+        if tamanho > maior:
+          maior = tamanho
+      tempo = np.linspace(0,maior,maior)
+      data1 = []
+      data2 =[]
+      i = 0
+      j = 0
+      for ser in tempo_sacada_raw:
+        if i == 2 or i == 4:
+          # val = np.polyfit(tempo[:len(ser)], ser*1000, 8)
+          # y = np.polyval(val,tempo[:len(ser)])
+          # correlation = np.corrcoef(val,tempo[:len(ser)])[0,1]
+          # det = correlation*correlation
+          plt.scatter(tempo[:len(ser)],ser*1000,s=std_tempo_sacada_raw[i]*1000,label=eixo_x_boxPlot[i],color=cores[j])
+          # plt.plot(tempo[:len(ser)], y,color=cores[j],label=str(det))
+          if i == 4:
+            data1 =ser*1000
+          elif i == 2:
+            data2 = ser*1000
+          j +=1
+
+        i+=1
+      # data2_m = data2[:len(data1)]
+      # res = -data2_m + data1
+      # print("média dos tempos gastos com sacadas entre o experimento 3 e 5: ",np.mean((res)), "ms - porcentagem: ", 100*(np.mean(res)/np.max((np.max(data1),np.max(data2_m)))), "%" )
+      if False:
+        plt.plot(tempo[:len(res)],np.ones(len(res))*np.mean((res)),label="média do valor de erro entre as duas curvas",color="grey")
+      # corr, _ = pearsonr(data1, data2[:len(data1)])
+      # print(print('Pearsons correlation: %.3f' % corr))
+      ax1.set_title('Tempo gasto com movimentos sacadicos ao longo do alcance')
+      plt.xlabel("Movimento")
+      plt.ylabel("Tempo [ms]")
+      plt.legend()
+      plt.savefig(path_init+'/exp_3_5_tempo_gasto_movimento_sacadico.png')
+      plt.show()
 
 
 
-    
+
+
+
+
+
+
+
+
 
 
 def tolerant_mean(arrs):

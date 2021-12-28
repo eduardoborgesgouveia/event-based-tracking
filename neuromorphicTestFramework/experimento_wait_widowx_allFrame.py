@@ -102,7 +102,7 @@ def main():
     parser.add_argument('--exist-ok',action='store_true',help='existing project/name ok, do not increment')
     parser.add_argument('--path-to-save',type=str,default="data_experimentos", help='path to save the active tracking data')
     parser.add_argument('--name',type=str,default="experimento",help='name of the file to save information')
-    parser.add_argument('--model',type=str,default="models/SITS/last.pt",help='path to weights')
+    parser.add_argument('--model',type=str,default="models/SITS/best.pt",help='path to weights')
     parser.add_argument('--conf-thresh',type=float, default=0.20,help='confidence of the predictions')
     parser.add_argument('--iou-thresh',type=float, default=0.1,help='confidence of the predictions')
     parser.add_argument('--speed', type=float, default=1, help='widowX speed')
@@ -161,7 +161,7 @@ def main():
     flagDistanceFilter = True
     mediaMovelDistancia = [0, 0, 0]
     qtdeMediaMovel = 3
-    thresholdDistanceFilter = 0.25
+    thresholdDistanceFilter = 0.1
     maxDistanceImage = math.sqrt(128**2 + 128**2)
     thresholdDistanceFilter = thresholdDistanceFilter * maxDistanceImage
     lastCentroid = (0, 0)

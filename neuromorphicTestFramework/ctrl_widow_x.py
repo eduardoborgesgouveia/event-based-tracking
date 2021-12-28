@@ -97,10 +97,10 @@ class widow_x():
         flagConnected = self.startUp()
         if flagConnected:
             input("press enter")
-            print("SETANDO MODO CILINDRICO: ", self.SET_CYLINDRICAL_MODE_CMD)
+            # print("SETANDO MODO CILINDRICO: ", self.SET_CYLINDRICAL_MODE_CMD)
             self.sendCmdWaitForReply(self.SET_CYLINDRICAL_MODE_CMD)
             time.sleep(1)
-            print("MOVENDO PARA POSIÇÃO INICIAL: ", self.START_POSITION_CMD)
+            # print("MOVENDO PARA POSIÇÃO INICIAL: ", self.START_POSITION_CMD)
             self.sendCmdWaitForReply(self.START_POSITION_CMD)
             time.sleep(1)
         self.isConnected = flagConnected
@@ -134,12 +134,12 @@ class widow_x():
         while not flagResposta:
             while self.comunicacaoSerial.out_waiting > 0:
                 i = 0
-                print("aguardando enviar todos os bytes...")
-            print("enviando -> ", cmd)
+                # print("aguardando enviar todos os bytes...")
+            # print("enviando -> ", cmd)
             self.comunicacaoSerial.write(cmd)
             while self.comunicacaoSerial.out_waiting > 0:
                 i = 0
-                print("aguardando enviar todos os bytes...")
+                # print("aguardando enviar todos os bytes...")
             res = []
             if flagWaitForReply:
                 t0 = time.perf_counter()
@@ -151,7 +151,7 @@ class widow_x():
                 self.verifyResponse(res)
                 self.comunicacaoSerial.flushInput()
                 self.comunicacaoSerial.flushOutput()
-                print(res)
+                # print(res)
             flagResposta = True
 
     def verifyResponse(self,res):
@@ -186,7 +186,7 @@ class widow_x():
 
     def stopEmergency(self):
         self.comunicacaoSerial.write(self.EMERGENCY_STOP_CMD)
-        print(self.comunicacaoSerial.readline())
+        # print(self.comunicacaoSerial.readline())
 
     def goSleep(self,flagWait=False):
         self.comunicacaoSerial.write(self.GO_SLEEP_CMD)
@@ -229,8 +229,8 @@ class widow_x():
     #TODO: colocar a validação reais
     def sendValue(self,x=2048,y=250,z=225,gripper = 256,wrist = 90,wrist_rot = 512,delta=None):
         #https://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
-        print("enviando comando com posição")
-        print("x: " + str(x) + " y: "+str(y)+" z: "+str(z)+" wrist_angle: " + str(wrist) + " wrist_rot: " + str(wrist_rot) + " gripper: " + str(gripper) + " delta: " + str(delta))
+        # print("enviando comando com posição")
+        # print("x: " + str(x) + " y: "+str(y)+" z: "+str(z)+" wrist_angle: " + str(wrist) + " wrist_rot: " + str(wrist_rot) + " gripper: " + str(gripper) + " delta: " + str(delta))
         #x,y,z,gripper,wrist,wrist_rot = self.verificaLimites(x,y,z,gripper,wrist,wrist_rot)
         posicoes = [x,y,z,wrist,wrist_rot,gripper]
         package = self.preparePackage(posicoes,delta)
@@ -252,7 +252,7 @@ class widow_x():
         package.append(self.BUTTON_BYTE)
         package.append(self.EXTENDED_BYTE)
         package.append(self.checkSum(package))
-        print(package)
+        # print(package)
         return package
 
 

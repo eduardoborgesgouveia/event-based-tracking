@@ -258,3 +258,4 @@ neuromorphicTestFramework/videos/*
 !results_models/yolov5s_Integral_results/*
 !results_models/yolov5s_SITS_results3/*
 !results_models/yolov5s_TORE_results/*
+neuromorphicTestFramework/**/*.webm
