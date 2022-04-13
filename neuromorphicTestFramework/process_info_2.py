@@ -14,7 +14,7 @@ from scipy.stats import pearsonr
 
 
 def main():
-    path_init = "analise_resultados_re_refeitos/"
+    path_init = "analise_resultados_verificacao/"
     folderNames = ['experimento_1','experimento_2','experimento_3','experimento_4','experimento_5']
     resultExperimentos = []
     ensaios =[]
@@ -307,12 +307,12 @@ def main():
       experimentos = []
       for i in range(len(media_deteccao_invalida)):
         max_value = max(media_deteccao_invalida[i],media_deteccao_sacada[i],media_deteccao_valida[i])
-        media_deteccao_invalida[i] =( media_deteccao_invalida[i]/max_value )* 100
-        media_deteccao_sacada[i] = (media_deteccao_sacada[i]/max_value )* 100
-        media_deteccao_valida[i] = (media_deteccao_valida[i]/max_value) * 100
+        media_deteccao_invalida[i] =( media_deteccao_invalida[i])* 100
+        media_deteccao_sacada[i] = (media_deteccao_sacada[i])* 100
+        media_deteccao_valida[i] = (media_deteccao_valida[i]) * 100
         experimentos.append([media_deteccao_sacada[i],media_deteccao_valida[i],media_deteccao_invalida[i]])
 
-      categories = ["Sacada", "Válida", "Invalida"]
+      categories = ["    Sacada", "Válida", "Inválida"]
       N = len(categories)
       j = 0
       for exp in experimentos:
@@ -326,7 +326,7 @@ def main():
         plt.fill(angles,values,alpha=0.3, color=cores[j-1])
         plt.xticks(angles[:-1], categories)
         plt.yticks([0,50,100],color="gray",size= 7)
-        plt.ylim(0,105)
+        plt.ylim(0,100)
         ax.set_rlabel_position(25.5)
         ax.set_title("Experimento - " + str(j), va='bottom')
 
@@ -428,7 +428,7 @@ def main():
     cores = ["darkseagreen","coral" ]
 
     plt.rcParams["figure.figsize"] = (8,4)
-    if True:
+    if False:
       fig1, ax1 = plt.subplots()
       arr = np.array(acuracia_geral_tracking)
       arr = arr*100
